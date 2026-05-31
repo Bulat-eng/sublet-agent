@@ -18,7 +18,7 @@ Every 15 minutes, it:
 7. Pushes any new matches to your Telegram (with Resend email as fallback)
 
 **Phase 2** (commented out, ready to enable): Ohana + LeaseBreak via Playwright.
-**Phase 4** (opt-in, local-only): Facebook groups via burner account.
+**Facebook groups** — evaluated and shelved: automation risks the account, and manual feeding adds no value over reading the post yourself. See `CHANGELOG.md`.
 
 ---
 
@@ -117,6 +117,28 @@ Test Telegram notification:
 ```bash
 python -m notifier --test
 ```
+
+---
+
+## Releasing & rolling back
+
+The agent runs from `main` HEAD — every cron tick checks out whatever is on `main`. Releases are tracked with git tags + `CHANGELOG.md`, and there's always a tagged known-good commit to return to.
+
+**Cutting a release**
+1. Land changes on `main` (via PR) and update `CHANGELOG.md`.
+2. Tag and push: `git tag v0.X.0 && git push origin v0.X.0`
+3. (Optional) Create a GitHub Release from the tag using the changelog notes.
+
+**Rolling back a bad release**
+
+Because runs always use `main` HEAD, roll back by putting a known-good commit back on `main` — *without* rewriting history (the bot auto-commits `state.db` to `main`):
+
+```bash
+git revert -m 1 <merge-commit-sha>   # undo the release merge as a new commit
+git push origin main                 # next cron run (≤15 min) uses the reverted code
+```
+
+To inspect or run a known-good version directly, check out its tag (e.g. `git checkout v0.1.0`). Avoid `git reset --hard` / force-push on `main`.
 
 ---
 
