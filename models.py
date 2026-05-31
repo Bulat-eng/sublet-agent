@@ -25,6 +25,7 @@ class Listing:
     posted_at: Optional[str] = None
     tags: list[str] = field(default_factory=list)
     region: Optional[str] = None              # routing key, set by filter.py (e.g. "manhattan")
+    flagged: Optional[str] = None             # soft "filter not passed" reason; still notified, just marked
 
     def to_dict(self) -> dict:
         return asdict(self)

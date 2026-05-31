@@ -74,8 +74,10 @@ def _format_listing(l: Listing) -> str:
 
     meta = " · ".join(bits[1:])
     badge = _badge(l.source)
+    flag = f"⚠️ <b>filter not passed</b> — {html_escape(l.flagged)}\n" if l.flagged else ""
 
     return (
+        f"{flag}"
         f"{bits[0]}\n"
         f"{meta}\n"
         f"{badge} · <a href=\"{url}\">view →</a>"
@@ -205,10 +207,15 @@ def _send_email_fallback(listings: list[Listing]) -> bool:
             meta_parts.append(f"move-in {l.move_in_date}")
         meta = " · ".join(meta_parts)
 
+        flag_html = (
+            f'<div style="color:#b00;font-size:12px;margin-top:2px;">⚠️ filter not passed — {html_escape(l.flagged)}</div>'
+            if l.flagged else ""
+        )
         rows.append(
             f'<div style="padding:12px 0;border-bottom:1px solid #eee;">'
             f'<div style="font-weight:600;"><a href="{html_escape(l.url)}">{html_escape(l.title[:120])}</a></div>'
             f'<div style="color:#555;font-size:13px;margin-top:4px;">{html_escape(meta)}</div>'
+            f'{flag_html}'
             f'<div style="color:#999;font-size:12px;margin-top:2px;">{_badge(l.source)}</div>'
             f'</div>'
         )

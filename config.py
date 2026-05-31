@@ -125,6 +125,13 @@ REDDIT_SUBLET_KEYWORDS = [
     "room available", "room for rent",
 ]
 
+# Demand-side "seeker" detection (Reddit-specific): drop posts where the author
+# is looking FOR a place rather than offering one — e.g. "I'm looking for a
+# furnished apartment, room or sublet". Matched in sources/reddit.py as
+# first-person "I'm/I am looking for [a] <noun>", so it won't catch offers that
+# say "looking for someone to take over my lease". Add nouns here to extend.
+REDDIT_SEEKER_NOUNS = ["apartment", "room", "sublet"]
+
 # ─── Sources to enable ────────────────────────────────────────────────────────
 
 # Phase 1 — no Playwright required

@@ -63,6 +63,21 @@ def _matches_sublet_keyword(text: str) -> bool:
     return any(kw in text_low for kw in config.REDDIT_SUBLET_KEYWORDS)
 
 
+# Demand-side "seeker" posts: the author wants a place, isn't offering one.
+# Keyed on first-person "I'm / I am / Im looking for [a/an] <place noun>", so it
+# won't catch offers like "looking for someone to take over my lease".
+_SEEKER_RE = re.compile(
+    r"\bi(?:['’]?m| ?am)\s+looking\s+for\s+(?:an?\s+)?(?:\w+\s+){0,2}?(?:"
+    + "|".join(re.escape(n) for n in config.REDDIT_SEEKER_NOUNS)
+    + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_seeker_post(text: str) -> bool:
+    return bool(_SEEKER_RE.search(text))
+
+
 def _strip_html(html: str) -> str:
     """Very lightweight HTML → text. RSS descriptions are HTML-wrapped."""
     text = re.sub(r"<[^>]+>", " ", html)
@@ -97,6 +112,12 @@ def _fetch_subreddit(sub_name: str) -> list[Listing]:
             if not _matches_sublet_keyword(full_text):
                 continue
 
+            # Flag (don't drop) demand-side "seeker" posts: author wants a place,
+            # not offering one. Still notified — just marked "filter not passed".
+            seeker = _is_seeker_post(full_text)
+            if seeker:
+                logger.info(f"  ↳ flagged seeker post: {title[:70]}")
+
             posted_at = None
             if entry.get("published_parsed"):
                 posted_at = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).isoformat()
@@ -110,6 +131,7 @@ def _fetch_subreddit(sub_name: str) -> list[Listing]:
                 duration_months=_parse_duration_months(full_text),
                 body_snippet=body[:300],
                 posted_at=posted_at,
+                flagged="possible seeker (wants a place, not offering)" if seeker else None,
             ))
 
         return out
