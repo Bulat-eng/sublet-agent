@@ -4,9 +4,12 @@ Tracks which listing IDs we've already notified about so we don't spam.
 State is committed back to the repo by the GitHub Actions workflow.
 """
 
+from __future__ import annotations
+
 import sqlite3
 import logging
 import os
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "state.db")
@@ -21,6 +24,12 @@ def init_db():
             url     TEXT,
             source  TEXT,
             seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS source_runs (
+            source   TEXT PRIMARY KEY,
+            last_run TEXT
         )
     """)
     conn.commit()
@@ -43,6 +52,33 @@ def mark_seen(listing_id: str, url: str, source: str = ""):
     c.execute(
         "INSERT OR IGNORE INTO seen (id, url, source) VALUES (?, ?, ?)",
         (listing_id, url, source),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_last_run(source: str) -> datetime | None:
+    """Return the UTC datetime a source last ran, or None if it never has."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT last_run FROM source_runs WHERE source = ?", (source,))
+    row = c.fetchone()
+    conn.close()
+    if not row or not row[0]:
+        return None
+    try:
+        return datetime.fromisoformat(row[0])
+    except ValueError:
+        return None
+
+
+def set_last_run(source: str):
+    """Record that a source just ran (naive UTC ISO timestamp)."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR REPLACE INTO source_runs (source, last_run) VALUES (?, ?)",
+        (source, datetime.utcnow().isoformat()),
     )
     conn.commit()
     conn.close()

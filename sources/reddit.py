@@ -64,10 +64,11 @@ def _matches_sublet_keyword(text: str) -> bool:
 
 
 # Demand-side "seeker" posts: the author wants a place, isn't offering one.
-# Keyed on first-person "I'm / I am / Im looking for [a/an] <place noun>", so it
-# won't catch offers like "looking for someone to take over my lease".
+# Matches "[I'm] looking for [a/an] <up to 2 words> <place noun>" — the optional
+# "I'm" lets bare titles like "Looking for Manhattan Sublet" match. The 2-word cap
+# still keeps offers like "looking for someone to take over my lease" out.
 _SEEKER_RE = re.compile(
-    r"\bi(?:['’]?m| ?am)\s+looking\s+for\s+(?:an?\s+)?(?:\w+\s+){0,2}?(?:"
+    r"(?:\bi(?:['’]?m| ?am)\s+)?\blooking\s+for\s+(?:an?\s+)?(?:\w+\s+){0,2}?(?:"
     + "|".join(re.escape(n) for n in config.REDDIT_SEEKER_NOUNS)
     + r")\b",
     re.IGNORECASE,

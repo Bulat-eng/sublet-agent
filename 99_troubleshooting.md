@@ -57,3 +57,10 @@ git pull --rebase
 - **Root cause:**
 - **Fix:**
 - **How to detect earlier next time:**
+
+### 2026-06-05 — Out-of-area listing (Hamilton Heights) routed to Manhattan channel
+- **What broke:** A SpareRoom listing in Hamilton Heights (not in our neighborhood list) was pushed to the Manhattan Telegram channel instead of being rejected.
+- **Symptom in logs:** Filter keeps a listing and `_assign_region` returns `manhattan` for text that has no real Manhattan neighborhood in it.
+- **Root cause:** `filter._assign_region` matched neighborhood keywords as raw substrings (`hood in text_low`). The abbreviation `"les"` (Lower East Side) is a substring of common words — "stain**les**s", "wire**les**s", "tab**les**" — and `"lic"` (Long Island City) hides inside "po**lic**e". SpareRoom scrapes *all* of NYC and leans entirely on the filter for area, so these got mis-routed rather than dropped.
+- **Fix:** Match neighborhoods as whole words/phrases with `\b(?:...)\b` (`_hood_regex` in `filter.py`, precompiled per region). Verified Hamilton Heights/Harlem/Washington Heights/Inwood now reject while LES/LIC/Park Slope/etc. still route.
+- **How to detect earlier next time:** If an out-of-area listing slips through, run `python -c "from filter import _assign_region; print(_assign_region('<card text>'))"` to see which keyword matched. Be wary of any short abbreviation (`les`, `lic`, `fidi`, `noho`) when adding new keywords.
