@@ -33,22 +33,34 @@ SCAM_PATTERNS = [
 _SCAM_RE = re.compile("|".join(SCAM_PATTERNS), re.IGNORECASE)
 
 
+def _hood_regex(hoods: list[str]) -> re.Pattern:
+    """Whole-word/phrase matcher for a list of neighborhoods.
+
+    Word boundaries stop short abbreviations from matching inside unrelated
+    words — e.g. "les" (Lower East Side) must NOT match "stainless"/"wireless",
+    and "lic" (Long Island City) must NOT match "police".
+    """
+    alternation = "|".join(re.escape(h) for h in hoods)
+    return re.compile(rf"\b(?:{alternation})\b", re.IGNORECASE)
+
+
+# Precompiled matchers (built once at import) — per-region for routing, combined for membership
+_REGION_RES = {key: _hood_regex(r["neighborhoods"]) for key, r in config.REGIONS.items()}
+_NEIGHBORHOOD_RE = _hood_regex(config.NEIGHBORHOOD_KEYWORDS)
+
+
 def _matches_neighborhood(text: str) -> str | None:
-    """Return the first matching neighborhood keyword, or None."""
-    text_low = text.lower()
-    for kw in config.NEIGHBORHOOD_KEYWORDS:
-        if kw in text_low:
-            return kw
-    return None
+    """Return the first matching neighborhood keyword (whole-word), or None."""
+    m = _NEIGHBORHOOD_RE.search(text)
+    return m.group(0).lower() if m else None
 
 
 def _assign_region(text: str) -> tuple[str | None, str | None]:
-    """Return (region_key, matched_neighborhood) for the first region whose neighborhood appears in text."""
-    text_low = text.lower()
-    for region_key, region in config.REGIONS.items():
-        for hood in region["neighborhoods"]:
-            if hood in text_low:
-                return region_key, hood
+    """Return (region_key, matched_neighborhood) for the first region whose neighborhood appears in text (whole-word match)."""
+    for region_key, rx in _REGION_RES.items():
+        m = rx.search(text)
+        if m:
+            return region_key, m.group(0).lower()
     return None, None
 
 

@@ -7,7 +7,7 @@ import os
 
 # ─── Your preferences ─────────────────────────────────────────────────────────
 
-MAX_RENT = 2500                  # hard filter: reject listings above this monthly price
+MAX_RENT = 2300                  # hard filter: reject listings above this monthly price
 MIN_RENT = 700                   # quality filter: scam-suspicious below this
 MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 
@@ -15,7 +15,7 @@ MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 SUBLET_DURATION_MIN_MONTHS = 1
 SUBLET_DURATION_MAX_MONTHS = 12
 REQUIRE_FURNISHED = False        # flag, not filter (still get unfurnished listings)
-EARLIEST_MOVE_IN = "2026-06-01"  # ISO date; flag listings starting before
+EARLIEST_MOVE_IN = "2026-06-15"  # ISO date; flag listings starting before
 LATEST_MOVE_IN   = "2026-09-30"  # ISO date; flag listings starting after
 
 
@@ -89,6 +89,37 @@ CL_SEARCH_GROUPS = {
     ],
 }
 
+# ─── SpareRoom search areas ───────────────────────────────────────────────────
+#
+# SpareRoom scrapes by SEO area URL: spareroom.com/rooms-for-rent/<path>. We hit
+# one page per target neighborhood so off-target areas (e.g. uptown Manhattan
+# like Hamilton Heights) are never returned — much better signal than the broad
+# /nyc page, where low-volume downtown targets get buried under high-volume
+# uptown listings. Paths verified live 2026-06-05.
+# No dedicated SpareRoom page: Seaport, Journal Square, Newport (the latter two
+# are covered by jersey_city). Add/remove paths to widen or narrow coverage.
+
+SPAREROOM_AREAS = [
+    # Manhattan (below ~23rd St)
+    "manhattan/soho", "manhattan/tribeca", "manhattan/financial_district",
+    "manhattan/battery_park_city", "manhattan/lower_east_side",
+    "manhattan/east_village", "manhattan/west_village",
+    "manhattan/greenwich_village", "manhattan/nolita", "manhattan/noho",
+    "manhattan/chinatown", "manhattan/two_bridges", "manhattan/chelsea",
+    "manhattan/flatiron_district", "manhattan/gramercy_park", "manhattan/kips_bay",
+    # North Brooklyn
+    "brooklyn/williamsburg", "brooklyn/greenpoint", "brooklyn/bushwick",
+    # South Brooklyn
+    "brooklyn/downtown_brooklyn", "brooklyn/dumbo", "brooklyn/boerum_hill",
+    "brooklyn/cobble_hill", "brooklyn/carroll_gardens", "brooklyn/park_slope",
+    "brooklyn/gowanus",
+    # Queens
+    "queens/astoria", "queens/long_island_city", "queens/sunnyside",
+    # New Jersey
+    "nj/hudson_county/jersey_city", "nj/hudson_county/hoboken",
+]
+
+
 # ─── Neighborhood median rents (for % comparison enrichment) ──────────────────
 
 MEDIANS = {
@@ -125,12 +156,13 @@ REDDIT_SUBLET_KEYWORDS = [
     "room available", "room for rent",
 ]
 
-# Demand-side "seeker" detection (Reddit-specific): drop posts where the author
-# is looking FOR a place rather than offering one — e.g. "I'm looking for a
-# furnished apartment, room or sublet". Matched in sources/reddit.py as
-# first-person "I'm/I am looking for [a] <noun>", so it won't catch offers that
-# say "looking for someone to take over my lease". Add nouns here to extend.
-REDDIT_SEEKER_NOUNS = ["apartment", "room", "sublet"]
+# Demand-side "seeker" detection (Reddit-specific): FLAG (not drop) posts where
+# the author is looking FOR a place rather than offering one — e.g. "I'm looking
+# for a furnished apartment" or a bare title like "Looking for Manhattan Sublet".
+# Matched in sources/reddit.py as "[I'm] looking for [a] <up to 2 words> <noun>";
+# the optional "I'm" lets title-style posts match, and the 2-word cap still keeps
+# offers like "looking for someone to take over my lease" out. Add nouns to extend.
+REDDIT_SEEKER_NOUNS = ["apartment", "room", "sublet", "lease"]
 
 # ─── Sources to enable ────────────────────────────────────────────────────────
 

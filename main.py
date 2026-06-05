@@ -71,8 +71,19 @@ def run():
         sources.append("facebook")
 
     all_listings: list[Listing] = []
+    now_utc = datetime.utcnow()
     for src in sources:
+        # Honor each source's minimum cadence so we don't hit sites every tick
+        cadence = config.SOURCE_CADENCE_MINUTES.get(src)
+        if cadence:
+            last = db.get_last_run(src)
+            if last is not None:
+                mins_ago = (now_utc - last).total_seconds() / 60.0
+                if mins_ago < cadence:
+                    logger.info(f"  {src}: skipped ({mins_ago:.0f}m since last run < {cadence}m cadence)")
+                    continue
         results = _run_source(src)
+        db.set_last_run(src)
         logger.info(f"  {src}: {len(results)} listings")
         all_listings.extend(results)
 

@@ -18,19 +18,21 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
+import config
 from models import Listing
 
 logger = logging.getLogger(__name__)
 
 BASE = "https://www.spareroom.com"
-SEARCH_URL = f"{BASE}/rooms-for-rent/nyc"
 
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
 ]
 
-MAX_PAGES = 3   # ~30 listings/page × 3 pages = ~90 per run; plenty for 30-min cadence
+# Neighborhood pages are narrow (~11 listings on page 1). One page per area keeps
+# the per-run request count reasonable across ~30 areas; bump for deeper history.
+PAGES_PER_AREA = 1
 
 
 def _headers() -> dict:
@@ -110,12 +112,12 @@ def _parse_listing_card(card) -> Listing | None:
     )
 
 
-def _fetch_page(page: int = 1) -> list[Listing]:
+def _fetch_page(url: str, page: int = 1) -> list[Listing]:
     params = {"offset": (page - 1) * 30} if page > 1 else {}
     try:
-        resp = requests.get(SEARCH_URL, params=params, headers=_headers(), timeout=20)
+        resp = requests.get(url, params=params, headers=_headers(), timeout=20)
         if resp.status_code != 200:
-            logger.warning(f"SpareRoom page {page}: {resp.status_code}")
+            logger.warning(f"SpareRoom {url} (page {page}): HTTP {resp.status_code}")
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -139,21 +141,28 @@ def _fetch_page(page: int = 1) -> list[Listing]:
         return out
 
     except Exception as exc:
-        logger.warning(f"SpareRoom page {page} failed: {exc}")
+        logger.warning(f"SpareRoom {url} (page {page}) failed: {exc}")
         return []
 
 
 def fetch() -> list[Listing]:
-    """Scrape SpareRoom NYC across the first few pages."""
-    all_listings: list[Listing] = []
-    for page in range(1, MAX_PAGES + 1):
-        page_results = _fetch_page(page)
-        if not page_results:
-            break
-        all_listings.extend(page_results)
-        time.sleep(random.uniform(2.0, 4.0))
+    """Scrape SpareRoom across the configured per-neighborhood area pages.
 
-    # Dedup by URL across pages
+    We hit one SEO area URL per target neighborhood (config.SPAREROOM_AREAS) so
+    off-target areas (e.g. uptown Manhattan) are never returned — instead of
+    scraping all of NYC and discarding most of it downstream.
+    """
+    all_listings: list[Listing] = []
+    for area in config.SPAREROOM_AREAS:
+        url = f"{BASE}/rooms-for-rent/{area}"
+        for page in range(1, PAGES_PER_AREA + 1):
+            page_results = _fetch_page(url, page)
+            if not page_results:
+                break
+            all_listings.extend(page_results)
+            time.sleep(random.uniform(2.0, 4.0))   # polite delay between requests
+
+    # Dedup by URL across areas/pages
     seen: set[str] = set()
     unique = []
     for l in all_listings:
@@ -161,7 +170,7 @@ def fetch() -> list[Listing]:
             seen.add(l.url)
             unique.append(l)
 
-    logger.info(f"[SpareRoom] {len(unique)} unique listings across {MAX_PAGES} pages")
+    logger.info(f"[SpareRoom] {len(unique)} unique listings across {len(config.SPAREROOM_AREAS)} areas")
     return unique
 
 
