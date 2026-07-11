@@ -1,355 +1,300 @@
 """
-Notification dispatch.
+Notification dispatch — email only.
 
-Primary:   Telegram bot — instant, free, rich previews.
-Fallback:  Resend email — used if Telegram isn't configured or fails.
+Delivery: Gmail SMTP (smtp.gmail.com:465) using a Gmail App Password.
+Set SENDER_EMAIL + GMAIL_APP_PASSWORD (env) to the sending Gmail account and
+TARGET_EMAIL to the inbox that receives the digest.
 
-Routing: each region (Manhattan, North Brooklyn, South Brooklyn, Queens, NJ)
-goes to its own Telegram channel. If a region's chat_id isn't set,
-its listings fall back to the global TELEGRAM_CHAT_ID.
+Listings are grouped into labelled sections by region (Manhattan, North
+Brooklyn, South Brooklyn, New Jersey) within a single HTML digest email, sent
+once per run whenever there are new matches (near-real-time).
 """
 
 from __future__ import annotations
 
-import os
 import sys
+import ssl
+import smtplib
 import logging
+from datetime import datetime
 from html import escape as html_escape
-
-import requests
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 import config
 from models import Listing
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
 
-# Telegram message text caps at 4096 chars; aim well under to be safe.
-MAX_MESSAGE_CHARS = 3500
+# ─── Source labels ────────────────────────────────────────────────────────────
 
-
-# ─── Formatting ──────────────────────────────────────────────────────────────
-
-SOURCE_BADGE = {
-    "craigslist_nyc":      "🟧 CL-NYC",
-    "craigslist_nj":       "🟧 CL-NJ",
-    "listings_project":    "🟪 LP",
-    "spareroom":           "🟦 SpareRoom",
-    "ohana":               "🟩 Ohana",
-    "leasebreak":          "🟫 LeaseBreak",
-    "facebook":            "🔵 FB",
+SOURCE_LABELS = {
+    "craigslist_nyc":   "Craigslist NYC",
+    "craigslist_nj":    "Craigslist NJ",
+    "craigslist":       "Craigslist",
+    "listings_project": "Listings Project",
+    "spareroom":        "SpareRoom",
+    "ohana":            "Ohana",
+    "leasebreak":       "LeaseBreak",
+    "facebook":         "Facebook",
 }
 
 
-def _badge(source: str) -> str:
-    for prefix, badge in SOURCE_BADGE.items():
+def _source_label(source: str) -> str:
+    for prefix, label in SOURCE_LABELS.items():
         if source.startswith(prefix):
-            return badge
-    if source.startswith("reddit_"):
-        return f"🟥 r/{source.split('_', 1)[1]}"
-    return f"📌 {source}"
+            return label
+    if source.startswith("reddit"):
+        parts = source.split("_", 1)
+        return f"r/{parts[1]}" if len(parts) > 1 and parts[1] else "Reddit"
+    return source
 
 
-def _format_listing(l: Listing) -> str:
-    """Telegram HTML-formatted single-listing block."""
-    price = f"${l.price:,}/mo" if l.price else "Price ?"
-    title = html_escape((l.title or "Listing")[:120])
-    url   = html_escape(l.url)
+# ─── Price vs. neighborhood median ────────────────────────────────────────────
 
-    bits = [f"<b>{title}</b>", f"💰 {price}"]
+def _price_vs_median(l: Listing) -> dict | None:
+    """Compare a listing's price to the neighborhood median in config.MEDIANS.
 
-    if l.neighborhood:
-        bits.append(f"📍 {html_escape(l.neighborhood)}")
-    if l.duration_months:
-        bits.append(f"📅 {l.duration_months}mo")
-    if l.move_in_date:
-        bits.append(f"➡️ move-in {l.move_in_date}")
-    if l.furnished is True:
-        bits.append("🛋️ furnished")
+    Returns {median, diff_pct, label, below} or None when we can't compare
+    (missing price/neighborhood/bedrooms, or no median on file).
+    """
+    if not l.price or not l.neighborhood or l.bedrooms is None:
+        return None
+    med = config.MEDIANS.get(l.neighborhood.lower())
+    if not med:
+        return None
+    key = "studio" if l.bedrooms == 0 else f"{l.bedrooms}br"
+    m = med.get(key)
+    if not m:
+        return None
+    diff_pct = round((m - l.price) / m * 100)
+    label = "studio" if l.bedrooms == 0 else f"{l.bedrooms}BR"
+    return {"median": m, "diff_pct": diff_pct, "label": label, "below": diff_pct > 0}
+
+
+# ─── Single listing card ──────────────────────────────────────────────────────
+
+def _listing_card(l: Listing) -> str:
+    title = html_escape((l.title or "Listing")[:90])
+    url   = html_escape(l.url or "#")
+    hood  = html_escape(l.neighborhood or "NYC")
+    price_str = f"${l.price:,}" if l.price else "Price on request"
+
+    # Beds
+    br_html = ""
     if l.bedrooms is not None:
-        bits.append(f"🛏️ {'studio' if l.bedrooms == 0 else f'{l.bedrooms}BR'}")
-    if l.tags:
-        bits.append("🏷️ " + ", ".join(html_escape(t) for t in l.tags))
+        br_html = "Studio" if l.bedrooms == 0 else f"{l.bedrooms} Bed"
+        br_html = f"&nbsp; {br_html}"
 
-    meta = " · ".join(bits[1:])
-    badge = _badge(l.source)
-    flag = f"⚠️ <b>filter not passed</b> — {html_escape(l.flagged)}\n" if l.flagged else ""
+    # % below median
+    cmp = _price_vs_median(l)
+    cmp_html = ""
+    if cmp and cmp["below"] and cmp["diff_pct"] >= 1:
+        cmp_html = (
+            '<div style="border-left:3px solid #10B981;padding-left:10px;margin:6px 0 10px;">'
+            f'<span style="color:#059669;font-weight:700;font-size:13px;">'
+            f'↓ {cmp["diff_pct"]}% below {hood} {cmp["label"]} median</span><br>'
+            f'<span style="color:#9CA3AF;font-size:12px;">Area median: ${cmp["median"]:,}/mo</span>'
+            '</div>'
+        )
 
-    return (
-        f"{flag}"
-        f"{bits[0]}\n"
-        f"{meta}\n"
-        f"{badge} · <a href=\"{url}\">view →</a>"
-    )
+    # Tag pills: furnished + soft-filter tags (early-move-in, short-2mo, …)
+    pills = []
+    if l.furnished is True:
+        pills.append(("🛋️ Furnished", "#FEF3C7", "#92400E"))
+    if l.duration_months:
+        pills.append((f"📅 {l.duration_months}mo", "#E0E7FF", "#3730A3"))
+    if l.move_in_date:
+        pills.append((f"➡️ move-in {html_escape(l.move_in_date)}", "#DBEAFE", "#1E40AF"))
+    for t in (l.tags or []):
+        pills.append((html_escape(t), "#F3F4F6", "#374151"))
+    pills_html = ""
+    if pills:
+        chips = "".join(
+            f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:10px;'
+            f'font-size:11px;font-weight:600;margin-right:4px;">{text}</span>'
+            for text, bg, fg in pills
+        )
+        pills_html = f'<div style="margin:8px 0;">{chips}</div>'
 
-
-# ─── Telegram ────────────────────────────────────────────────────────────────
-
-def _send_telegram(chat_id: str, text: str) -> bool:
-    """Send a single Telegram message to a specific chat_id. Returns True on success."""
-    if not (config.TELEGRAM_BOT_TOKEN and chat_id):
-        logger.warning("Telegram not configured (missing bot token or chat_id)")
-        return False
-
-    url = TELEGRAM_API.format(token=config.TELEGRAM_BOT_TOKEN, method="sendMessage")
-    try:
-        resp = requests.post(url, json={
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": False,
-        }, timeout=15)
-        if resp.ok:
-            return True
-        logger.error(f"Telegram send failed [{resp.status_code}]: {resp.text[:200]}")
-        return False
-    except Exception as exc:
-        logger.error(f"Telegram send exception: {exc}")
-        return False
-
-
-def _chunk_listings(listings: list[Listing]) -> list[str]:
-    """Group listings into Telegram-sized message chunks."""
-    chunks: list[str] = []
-    buffer = ""
-    for l in listings:
-        block = _format_listing(l) + "\n\n"
-        if len(buffer) + len(block) > MAX_MESSAGE_CHARS and buffer:
-            chunks.append(buffer.rstrip())
-            buffer = block
-        else:
-            buffer += block
-    if buffer:
-        chunks.append(buffer.rstrip())
-    return chunks
-
-
-def _send_region_digest(chat_id: str, region_label: str, region_emoji: str, listings: list[Listing]) -> bool:
-    """Send N listings via Telegram to a specific region's chat, chunked."""
-    if not listings:
-        return False
-    n = len(listings)
-    header = f"{region_emoji} <b>{n} new {region_label} sublet{'s' if n != 1 else ''}</b>\n\n"
-    chunks = _chunk_listings(listings)
-    if not chunks:
-        return False
-    chunks[0] = header + chunks[0]
-
-    all_ok = True
-    for i, chunk in enumerate(chunks, start=1):
-        ok = _send_telegram(chat_id, chunk)
-        all_ok = all_ok and ok
-        if len(chunks) > 1:
-            logger.info(f"Telegram[{region_label}]: chunk {i}/{len(chunks)} ({'ok' if ok else 'FAIL'})")
-    return all_ok
-
-
-def _resolve_chat_id(region_key: str | None) -> tuple[str, str, str]:
-    """
-    Return (chat_id, label, emoji) for a region.
-    Falls back to global TELEGRAM_CHAT_ID if the region-specific env var is unset.
-    """
-    if region_key and region_key in config.REGIONS:
-        region = config.REGIONS[region_key]
-        chat_id = os.environ.get(region["chat_id_env"], "")
-        if chat_id:
-            return chat_id, region["label"], region["emoji"]
-        # Fall through to global if region-specific not set
-        return config.TELEGRAM_CHAT_ID, region["label"], region["emoji"]
-    # Unknown / no region — use global with neutral label
-    return config.TELEGRAM_CHAT_ID, "NYC", "🏙️"
-
-
-def send_telegram_routed(listings: list[Listing]) -> bool:
-    """
-    Route listings to per-region Telegram chats.
-    Returns True if every region we tried to message succeeded.
-    """
-    if not listings:
-        return False
-
-    # Bucket by region
-    by_region: dict[str | None, list[Listing]] = {}
-    for l in listings:
-        by_region.setdefault(l.region, []).append(l)
-
-    all_ok = True
-    for region_key, region_listings in by_region.items():
-        chat_id, label, emoji = _resolve_chat_id(region_key)
-        if not chat_id:
-            logger.warning(f"No chat_id for region '{region_key}' — skipping {len(region_listings)} listings")
-            all_ok = False
-            continue
-        ok = _send_region_digest(chat_id, label, emoji, region_listings)
-        logger.info(f"[{label}] sent {len(region_listings)} listings → {'ok' if ok else 'FAIL'}")
-        all_ok = all_ok and ok
-
-    return all_ok
-
-
-# ─── Email fallback (Resend) ─────────────────────────────────────────────────
-
-def _send_email_fallback(listings: list[Listing]) -> bool:
-    """Plain-HTML digest via Resend. Only used if Telegram isn't configured/fails."""
-    if not config.RESEND_API_KEY:
-        return False
-
-    rows = []
-    for l in listings:
-        price = f"${l.price:,}/mo" if l.price else "Price ?"
-        meta_parts = [price]
-        if l.neighborhood:
-            meta_parts.append(l.neighborhood)
-        if l.duration_months:
-            meta_parts.append(f"{l.duration_months}mo")
-        if l.move_in_date:
-            meta_parts.append(f"move-in {l.move_in_date}")
-        meta = " · ".join(meta_parts)
-
+    # Soft "filter not passed" flag — still shown, just marked
+    flag_html = ""
+    if l.flagged:
         flag_html = (
-            f'<div style="color:#b00;font-size:12px;margin-top:2px;">⚠️ filter not passed — {html_escape(l.flagged)}</div>'
-            if l.flagged else ""
-        )
-        rows.append(
-            f'<div style="padding:12px 0;border-bottom:1px solid #eee;">'
-            f'<div style="font-weight:600;"><a href="{html_escape(l.url)}">{html_escape(l.title[:120])}</a></div>'
-            f'<div style="color:#555;font-size:13px;margin-top:4px;">{html_escape(meta)}</div>'
-            f'{flag_html}'
-            f'<div style="color:#999;font-size:12px;margin-top:2px;">{_badge(l.source)}</div>'
-            f'</div>'
+            '<p style="color:#B45309;font-size:13px;margin:6px 0;">'
+            f'⚠️ filter not passed — {html_escape(l.flagged)}</p>'
         )
 
-    html = (
-        f'<div style="font-family:sans-serif;max-width:600px;margin:auto;padding:20px;">'
-        f'<h2>🏠 {len(listings)} new NYC sublets</h2>'
-        + "".join(rows)
-        + '</div>'
+    # Description snippet
+    desc = html_escape((l.body_snippet or "")[:280])
+    desc_html = (
+        f'<p style="color:#374151;font-size:13px;line-height:1.55;margin:10px 0 6px;">{desc}…</p>'
+        if desc else ""
     )
 
-    try:
-        resp = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {config.RESEND_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "from": "Sublet Agent <onboarding@resend.dev>",
-                "to": [config.TARGET_EMAIL],
-                "subject": f"🏠 {len(listings)} new NYC sublet{'s' if len(listings)!=1 else ''}",
-                "html": html,
-            },
-            timeout=30,
+    source = html_escape(_source_label(l.source))
+
+    return f"""
+<div style="border:1px solid #E5E7EB;border-radius:14px;padding:20px 22px;margin-bottom:18px;
+            background:#FFFFFF;">
+  <a href="{url}" style="text-decoration:none;">
+    <p style="margin:0;font-size:17px;font-weight:700;color:#111827;line-height:1.3;">{title}</p>
+  </a>
+  <p style="margin:3px 0 0;color:#6B7280;font-size:13px;">{hood}</p>
+
+  <div style="margin:10px 0 2px;">
+    <span style="font-size:26px;font-weight:800;color:#111827;">{price_str}</span>
+    <span style="color:#9CA3AF;font-size:14px;">/mo {br_html}</span>
+  </div>
+
+  {cmp_html}
+  {pills_html}
+  {flag_html}
+  {desc_html}
+
+  <div style="margin-top:14px;">
+    <a href="{url}" style="background:#1D4ED8;color:#fff;padding:9px 20px;border-radius:8px;
+       text-decoration:none;font-weight:600;font-size:14px;display:inline-block;">View listing →</a>
+    <span style="color:#D1D5DB;font-size:12px;margin-left:12px;">via {source}</span>
+  </div>
+</div>
+"""
+
+
+# ─── Full digest HTML ─────────────────────────────────────────────────────────
+
+def _group_by_region(listings: list[Listing]) -> dict[str, list[Listing]]:
+    """Bucket listings by region key, preserving config.REGIONS ordering."""
+    buckets: dict[str, list[Listing]] = {}
+    for l in listings:
+        buckets.setdefault(l.region or "other", []).append(l)
+    ordered = {k: buckets[k] for k in config.REGIONS if k in buckets}
+    if "other" in buckets:
+        ordered["other"] = buckets["other"]
+    return ordered
+
+
+def _build_html(listings: list[Listing]) -> str:
+    count = len(listings)
+    now   = datetime.now().strftime("%B %d, %Y · %I:%M %p ET")
+
+    sections = []
+    for region_key, region_listings in _group_by_region(listings).items():
+        region = config.REGIONS.get(region_key, {"label": "Other", "emoji": "📌"})
+        n = len(region_listings)
+        header = (
+            f'<h2 style="font-size:16px;font-weight:700;color:#111827;'
+            f'margin:26px 0 12px;">{region["emoji"]} {html_escape(region["label"])} '
+            f'<span style="color:#9CA3AF;font-weight:500;">({n})</span></h2>'
         )
-        if resp.ok:
-            logger.info(f"Email fallback sent (id={resp.json().get('id', '?')})")
-            return True
-        logger.error(f"Email fallback failed [{resp.status_code}]: {resp.text[:200]}")
+        cards = "\n".join(_listing_card(l) for l in region_listings)
+        sections.append(header + cards)
+
+    area_summary = " · ".join(r["label"] for r in config.REGIONS.values())
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:620px;margin:0 auto;padding:28px 16px;">
+
+  <div style="text-align:center;margin-bottom:8px;">
+    <h1 style="font-size:24px;font-weight:800;color:#111827;margin:0 0 6px;">🏙️ NYC Rental Digest</h1>
+    <p style="color:#6B7280;font-size:14px;margin:0;">{now}</p>
+    <p style="color:#1D4ED8;font-size:15px;font-weight:600;margin:6px 0 0;">
+      {count} new listing{"s" if count != 1 else ""} found
+    </p>
+  </div>
+
+  {"".join(sections)}
+
+  <div style="text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid #E5E7EB;">
+    <p style="color:#9CA3AF;font-size:12px;line-height:1.6;margin:0;">
+      {html_escape(area_summary)}<br>
+      Max ${config.MAX_RENT:,}/mo · Studios–{config.MAX_BEDROOMS}BR · Sublets · Rooms · Furnished flagged
+    </p>
+  </div>
+
+</div>
+</body>
+</html>"""
+
+
+# ─── Send via Gmail SMTP ──────────────────────────────────────────────────────
+
+def _send_gmail(subject: str, html: str) -> bool:
+    sender   = config.SENDER_EMAIL
+    password = config.GMAIL_APP_PASSWORD
+    to       = config.TARGET_EMAIL
+
+    if not sender or not password:
+        logger.error("SENDER_EMAIL or GMAIL_APP_PASSWORD not set — cannot send email")
         return False
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = f"NYC Rental Agent <{sender}>"
+    msg["To"]      = to
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=30) as srv:
+            srv.login(sender, password)
+            srv.sendmail(sender, [to], msg.as_string())
+        logger.info(f"Gmail SMTP: digest sent to {to}")
+        return True
     except Exception as exc:
-        logger.error(f"Email fallback exception: {exc}")
+        logger.error(f"Gmail SMTP failed: {exc}")
         return False
 
 
-# ─── Public API ──────────────────────────────────────────────────────────────
+# ─── Public API ───────────────────────────────────────────────────────────────
 
 def notify(listings: list[Listing]) -> bool:
-    """Dispatch notifications. Returns True if at least one channel succeeded."""
+    """Send the digest email. Returns True on success (so main.py marks seen)."""
     if not listings:
         logger.info("notify: no listings to send")
         return False
 
-    tg_ok = send_telegram_routed(listings)
-    if tg_ok:
-        return True
-
-    logger.info("Telegram unavailable or failed — trying email fallback")
-    return _send_email_fallback(listings)
+    n = len(listings)
+    subject = f"🏙️ {n} new NYC listing{'s' if n != 1 else ''} — ${config.MAX_RENT:,} max"
+    html = _build_html(listings)
+    return _send_gmail(subject, html)
 
 
-# ─── CLI helpers ─────────────────────────────────────────────────────────────
-
-def _print_chat_id_helper():
-    """Walk the user through finding their Telegram chat_id(s) by calling getUpdates.
-
-    Works for direct messages, group chats, AND channels (as long as the bot
-    is admin in the channel and at least one message has been posted there).
-    """
-    if not config.TELEGRAM_BOT_TOKEN:
-        print("Set TELEGRAM_BOT_TOKEN in .env first, then post a message in each channel/group/DM.")
-        sys.exit(1)
-    url = TELEGRAM_API.format(token=config.TELEGRAM_BOT_TOKEN, method="getUpdates")
-    resp = requests.get(url, timeout=10)
-    data = resp.json()
-    if not data.get("ok"):
-        print(f"Telegram API error: {data}")
-        sys.exit(1)
-    updates = data.get("result", [])
-    if not updates:
-        print("No updates yet. Post a message in each Telegram chat/channel where the bot is, then re-run this.")
-        sys.exit(0)
-    seen = {}
-    for u in updates:
-        msg = (u.get("message") or u.get("channel_post")
-               or u.get("edited_message") or u.get("edited_channel_post") or {})
-        chat = msg.get("chat", {})
-        cid = chat.get("id")
-        if cid is None or cid in seen:
-            continue
-        title = chat.get("title") or chat.get("username") or chat.get("first_name") or "?"
-        ctype = chat.get("type", "?")
-        seen[cid] = (title, ctype)
-    if not seen:
-        print("No usable chats found. Make sure your bot is admin in the channels and has been messaged.")
-        sys.exit(0)
-    print("Found these chats:")
-    for cid, (title, ctype) in seen.items():
-        print(f"  chat_id={cid}  type={ctype}  name={title!r}")
-    print("\n→ For each channel, copy its chat_id into the matching GitHub Secret:")
-    print("    TELEGRAM_CHAT_ID_MANHATTAN")
-    print("    TELEGRAM_CHAT_ID_NORTH_BK")
-    print("    TELEGRAM_CHAT_ID_SOUTH_BK")
-    print("    TELEGRAM_CHAT_ID_QUEENS")
-    print("    TELEGRAM_CHAT_ID_NJ")
-
+# ─── CLI helper ───────────────────────────────────────────────────────────────
 
 def _send_test():
-    """Send a hardcoded test message to each configured region."""
+    """Send a hardcoded test digest across the regions."""
     samples = [
         Listing(id="test_m", source="craigslist_nyc",
                 url="https://example.com/m", title="TEST Manhattan: $2,200 sublet in East Village",
                 price=2200, neighborhood="East Village", duration_months=3,
                 move_in_date="2026-06-15", furnished=True, bedrooms=1,
-                body_snippet="Test notification — Manhattan channel.", region="manhattan"),
-        Listing(id="test_nbk", source="craigslist_nyc",
+                body_snippet="Test notification — Manhattan section.", region="manhattan"),
+        Listing(id="test_nbk", source="spareroom",
                 url="https://example.com/nbk", title="TEST North BK: $1,900 room in Williamsburg",
-                price=1900, neighborhood="Williamsburg", region="north_brooklyn",
-                body_snippet="Test notification — North Brooklyn channel."),
+                price=1900, neighborhood="Williamsburg", bedrooms=1,
+                body_snippet="Test notification — North Brooklyn section.", region="north_brooklyn"),
         Listing(id="test_sbk", source="craigslist_nyc",
-                url="https://example.com/sbk", title="TEST South BK: $2,400 sublet in Park Slope",
-                price=2400, neighborhood="Park Slope", region="south_brooklyn",
-                body_snippet="Test notification — South Brooklyn channel."),
-        Listing(id="test_q", source="craigslist_nyc",
-                url="https://example.com/q", title="TEST Queens: $1,800 in Astoria",
-                price=1800, neighborhood="Astoria", region="queens",
-                body_snippet="Test notification — Queens channel."),
+                url="https://example.com/sbk", title="TEST South BK: $2,100 sublet in Park Slope",
+                price=2100, neighborhood="Park Slope", bedrooms=1,
+                body_snippet="Test notification — South Brooklyn section.", region="south_brooklyn"),
         Listing(id="test_nj", source="craigslist_nj",
                 url="https://example.com/nj", title="TEST NJ: $1,700 in Jersey City",
-                price=1700, neighborhood="Jersey City", region="new_jersey",
-                body_snippet="Test notification — NJ channel."),
+                price=1700, neighborhood="Jersey City", bedrooms=0,
+                body_snippet="Test notification — New Jersey section.", region="new_jersey"),
     ]
     ok = notify(samples)
-    print("✅ Sent" if ok else "❌ Some sends failed — check logs above")
+    print("✅ Sent" if ok else "❌ Send failed — check logs above")
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    if len(sys.argv) > 1 and sys.argv[1] == "--get-chat-id":
-        _print_chat_id_helper()
-    elif len(sys.argv) > 1 and sys.argv[1] == "--test":
+    if len(sys.argv) > 1 and sys.argv[1] == "--test":
         _send_test()
     else:
         print("Usage:")
-        print("  python -m notifier --get-chat-id   # find all your Telegram chat_ids at once")
-        print("  python -m notifier --test          # send a test message to each region")
+        print("  python -m notifier --test   # send a test digest email to TARGET_EMAIL")
