@@ -7,7 +7,7 @@ import os
 
 # ─── Your preferences ─────────────────────────────────────────────────────────
 
-MAX_RENT = 2300                  # hard filter: reject listings above this monthly price
+MAX_RENT = 2000                  # hard filter: reject listings above this monthly price
 MIN_RENT = 700                   # quality filter: scam-suspicious below this
 MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 
@@ -21,15 +21,14 @@ LATEST_MOVE_IN   = "2026-09-30"  # ISO date; flag listings starting after
 
 # ─── Regions ──────────────────────────────────────────────────────────────────
 #
-# Each region is one Telegram channel. Listings are routed to the channel of
-# the first matching neighborhood. If a region's chat_id env var is missing,
-# its listings fall back to TELEGRAM_CHAT_ID.
+# Regions group listings into labelled sections inside the digest email.
+# A listing is assigned to the first region whose neighborhood appears in it.
+# (Queens was removed 2026-07-11 — no longer part of the search.)
 
 REGIONS = {
     "manhattan": {
         "label": "Manhattan",
         "emoji": "🟦",
-        "chat_id_env": "TELEGRAM_CHAT_ID_MANHATTAN",
         "neighborhoods": [
             "soho", "tribeca", "financial district", "fidi", "battery park",
             "lower east side", "les", "east village", "west village",
@@ -40,28 +39,19 @@ REGIONS = {
     "north_brooklyn": {
         "label": "North Brooklyn",
         "emoji": "🟩",
-        "chat_id_env": "TELEGRAM_CHAT_ID_NORTH_BK",
         "neighborhoods": ["williamsburg", "greenpoint", "bushwick"],
     },
     "south_brooklyn": {
         "label": "South Brooklyn",
         "emoji": "🟪",
-        "chat_id_env": "TELEGRAM_CHAT_ID_SOUTH_BK",
         "neighborhoods": [
             "downtown brooklyn", "dumbo", "boerum hill",
             "cobble hill", "carroll gardens", "park slope", "gowanus",
         ],
     },
-    "queens": {
-        "label": "Queens",
-        "emoji": "🟧",
-        "chat_id_env": "TELEGRAM_CHAT_ID_QUEENS",
-        "neighborhoods": ["astoria", "long island city", "lic", "sunnyside"],
-    },
     "new_jersey": {
         "label": "New Jersey",
         "emoji": "🟫",
-        "chat_id_env": "TELEGRAM_CHAT_ID_NJ",
         "neighborhoods": ["jersey city", "hoboken", "journal square", "newport"],
     },
 }
@@ -82,7 +72,6 @@ CL_SEARCH_GROUPS = {
         "bushwick",
         "downtown brooklyn carroll gardens",
         "park slope cobble hill",
-        "astoria long island city",   # Queens
     ],
     "nj": [
         "jersey city hoboken",
@@ -113,8 +102,6 @@ SPAREROOM_AREAS = [
     "brooklyn/downtown_brooklyn", "brooklyn/dumbo", "brooklyn/boerum_hill",
     "brooklyn/cobble_hill", "brooklyn/carroll_gardens", "brooklyn/park_slope",
     "brooklyn/gowanus",
-    # Queens
-    "queens/astoria", "queens/long_island_city", "queens/sunnyside",
     # New Jersey
     "nj/hudson_county/jersey_city", "nj/hudson_county/hoboken",
 ]
@@ -136,8 +123,6 @@ MEDIANS = {
     "tribeca":           {"studio": 3800, "1br": 5000, "2br": 7000},
     "chelsea":           {"studio": 3000, "1br": 3800, "2br": 5200},
     "lower east side":   {"studio": 2700, "1br": 3200, "2br": 4500},
-    "astoria":           {"studio": 2200, "1br": 2700, "2br": 3500},
-    "long island city":  {"studio": 2800, "1br": 3400, "2br": 4600},
     "jersey city":       {"studio": 2200, "1br": 2800, "2br": 3600},
     "hoboken":           {"studio": 2400, "1br": 3000, "2br": 4000},
 }
@@ -188,15 +173,13 @@ SOURCE_CADENCE_MINUTES = {
 
 # ─── Secrets (env vars only — never hardcode) ─────────────────────────────────
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")    # global fallback
-
-# Per-region chat IDs are read lazily in notifier.py via REGIONS[key]["chat_id_env"]
+# Email delivery via Gmail SMTP. Create a Gmail App Password (NOT your normal
+# login password) at myaccount.google.com/apppasswords and set both vars below.
+SENDER_EMAIL       = os.environ.get("SENDER_EMAIL", "")       # the Gmail that sends
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "") # 16-char app password
+TARGET_EMAIL       = os.environ.get("TARGET_EMAIL", "REDACTED@example.com")  # inbox that receives
 
 # Reddit uses public RSS feeds — no credentials needed.
-
-RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "")
-TARGET_EMAIL      = os.environ.get("TARGET_EMAIL", "REDACTED@example.com")
 
 ENABLE_FACEBOOK   = os.environ.get("ENABLE_FACEBOOK", "false").lower() == "true"
 FB_COOKIES_PATH   = os.environ.get("FB_COOKIES_PATH", "./fb_cookies.json")

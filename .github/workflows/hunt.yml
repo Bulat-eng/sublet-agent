@@ -21,9 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.3
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6.2.0
         with:
           python-version: "3.11"
           cache: pip
@@ -37,15 +37,9 @@ jobs:
 
       - name: Run sublet hunt
         env:
-          TELEGRAM_BOT_TOKEN:           ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID:             ${{ secrets.TELEGRAM_CHAT_ID }}              # global fallback
-          TELEGRAM_CHAT_ID_MANHATTAN:   ${{ secrets.TELEGRAM_CHAT_ID_MANHATTAN }}
-          TELEGRAM_CHAT_ID_NORTH_BK:    ${{ secrets.TELEGRAM_CHAT_ID_NORTH_BK }}
-          TELEGRAM_CHAT_ID_SOUTH_BK:    ${{ secrets.TELEGRAM_CHAT_ID_SOUTH_BK }}
-          TELEGRAM_CHAT_ID_QUEENS:      ${{ secrets.TELEGRAM_CHAT_ID_QUEENS }}
-          TELEGRAM_CHAT_ID_NJ:          ${{ secrets.TELEGRAM_CHAT_ID_NJ }}
-          RESEND_API_KEY:               ${{ secrets.RESEND_API_KEY }}
-          TARGET_EMAIL:                 ${{ secrets.TARGET_EMAIL }}
+          SENDER_EMAIL:        ${{ secrets.SENDER_EMAIL }}         # sending Gmail address
+          GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}   # 16-char Gmail app password
+          TARGET_EMAIL:        ${{ secrets.TARGET_EMAIL }}         # inbox that receives the digest
         run: python main.py
 
       - name: Commit state.db

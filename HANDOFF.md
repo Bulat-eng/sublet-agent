@@ -2,13 +2,13 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-06-05._
+_Last updated: 2026-07-11 (see CHANGELOG `[0.3.0]`: email-only, Queens removed)._
 
 ---
 
 ## What it does
 
-Every cron tick it scrapes **Craigslist (NYC + NJ)**, **Listings Project**, **SpareRoom** (per-neighborhood), and **Reddit** for NYC sublets / rooms; filters by budget, neighborhood, and scam patterns; deduplicates via SQLite (`state.db`, committed back to the repo); and pushes new matches to **Telegram** (per-region channels) with a **Resend** email fallback. Cost: ~$0/mo.
+Every cron tick it scrapes **Craigslist (NYC + NJ)**, **Listings Project**, **SpareRoom** (per-neighborhood), and **Reddit** for NYC sublets / rooms; filters by budget, neighborhood, and scam patterns; deduplicates via SQLite (`state.db`, committed back to the repo); and emails new matches as a single region-grouped HTML digest via **Gmail SMTP**. Cost: ~$0/mo.
 
 ---
 
@@ -24,7 +24,8 @@ filter.py                   → HARD (budget, wrong-area) + SOFT (duration/move-
 db.py                       → SQLite dedup (`seen` table) + per-source last-run
                               (`source_runs` table). Committed back to repo by the workflow.
 models.py                   → Listing dataclass.
-notifier.py                 → Telegram primary (per-region channels), Resend email fallback.
+notifier.py                 → Email-only: region-grouped HTML digest (price-vs-median
+                              from config.MEDIANS) sent via Gmail SMTP.
 sources/craigslist.py       → CL NYC + NJ (rotating UA, randomized delays).
 sources/listings_project.py → listingsproject.com.
 sources/spareroom.py        → Per-neighborhood SEO area pages (config.SPAREROOM_AREAS).
@@ -41,26 +42,25 @@ The live agent runs from **`main` HEAD** — every tick checks out whatever is o
 | Service | Where | Purpose |
 |---|---|---|
 | **GitHub** | github.com/**Bulat-eng**/sublet-agent (renamed from `Bulat-personal`; old URL redirects) | Source + Actions hosting (free, public repo) |
-| **Telegram** | bot via @BotFather | Primary notifications, routed to per-region channels |
-| **Resend** | resend.com | Email fallback when Telegram fails |
+| **Gmail SMTP** | smtp.gmail.com:465 (App Password) | Sends the digest email |
 | **Reddit** | public `/new/.rss` feeds | No auth/app needed |
 
 ### GitHub Secrets (Settings → Secrets and variables → Actions)
-`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (global fallback), per-region chat IDs
-`TELEGRAM_CHAT_ID_MANHATTAN` / `_NORTH_BK` / `_SOUTH_BK` / `_QUEENS` / `_NJ`,
-`RESEND_API_KEY`, `TARGET_EMAIL`. (Secrets live in GitHub, never in code.)
+`SENDER_EMAIL` (sending Gmail), `GMAIL_APP_PASSWORD` (16-char app password),
+`TARGET_EMAIL` (inbox that receives). The old `TELEGRAM_*` / `RESEND_API_KEY`
+secrets are no longer read and can be deleted. (Secrets live in GitHub, never in code.)
 
 ---
 
 ## Search criteria (all in `config.py`)
 
-- **Rent:** $700 – **$2,300**/mo (hard reject above; below $700 flagged scam-suspicious)
+- **Rent:** $700 – **$2,000**/mo (hard reject above; below $700 flagged scam-suspicious)
 - **Max bedrooms:** 2 (studio / 1BR / 2BR)
 - **Sublet duration:** 1–12 months (soft tag if outside)
 - **Move-in window:** **2026-06-15 → 2026-09-30** (soft flag if outside)
 - **Furnished:** flagged, not filtered
-- **Neighborhoods:** 5 regions → each its own Telegram channel: Manhattan (below ~23rd St), North Brooklyn, South Brooklyn, Queens, New Jersey. See `REGIONS`.
-- **SpareRoom:** 31 explicit neighborhood paths in `SPAREROOM_AREAS`.
+- **Neighborhoods:** 4 regions → labelled sections in the digest email: Manhattan (below ~23rd St), North Brooklyn, South Brooklyn, New Jersey. (Queens removed 2026-07-11.) See `REGIONS`.
+- **SpareRoom:** 28 explicit neighborhood paths in `SPAREROOM_AREAS`.
 
 ---
 
@@ -83,7 +83,7 @@ The live agent runs from **`main` HEAD** — every tick checks out whatever is o
 1. **⚠️ Cron is throttled (biggest issue).** GitHub runs the `*/15` schedule only **every ~2–4 hours** on this public repo, so listings arrive stale — a real handicap in a fast rental market. Fix: an external pinger (e.g. cron-job.org → `repository_dispatch`, or hitting `workflow_dispatch`). **Not yet done.** Once fixed, the cadence gating (item below) actually starts earning its keep.
 2. **Node 20 action deprecation.** `hunt.yml` uses `actions/checkout@v4` + `actions/setup-python@v5` (Node 20); GitHub forces Node 24 on **2026-06-16**. Bump the action versions. _(A task chip was spawned for this.)_
 3. **First-run notification bursts.** After a coverage expansion the catch-up run can notify a lot at once (last run: 70). No per-run cap yet — easy to add if it's annoying.
-4. **SpareRoom area-URL dependency.** 31 hardcoded slugs in `SPAREROOM_AREAS`. If SpareRoom renames an area path it 404s (logged warning, run continues). No dedicated SpareRoom page for **Seaport / Journal Square / Newport** (the latter two are covered by `jersey_city`).
+4. **SpareRoom area-URL dependency.** 28 hardcoded slugs in `SPAREROOM_AREAS`. If SpareRoom renames an area path it 404s (logged warning, run continues). No dedicated SpareRoom page for **Seaport / Journal Square / Newport** (the latter two are covered by `jersey_city`).
 5. **Cadence gating is mostly dormant** while the cron only fires every 2–4h (always longer than the 30m/6h cadences). It's forward-looking insurance for when item #1 is fixed.
 6. **Phase 2 sources** (Ohana, LeaseBreak via Playwright) and **Facebook** remain off / opt-in. See README.
 
@@ -94,7 +94,7 @@ The live agent runs from **`main` HEAD** — every tick checks out whatever is o
 | Task | How |
 |---|---|
 | Change budget / move-in / bedrooms | Edit constants at top of `config.py` |
-| Add/remove neighborhoods | Edit `REGIONS` in `config.py` (drives filtering + Telegram routing) |
+| Add/remove neighborhoods | Edit `REGIONS` in `config.py` (drives filtering + email section grouping) |
 | Add/remove SpareRoom areas | Edit `SPAREROOM_AREAS` — path format `borough/neighborhood` (NJ: `nj/hudson_county/city`); verify the URL returns listings first |
 | Change per-source frequency | Edit `SOURCE_CADENCE_MINUTES` |
 | Tune Reddit seeker detection | `REDDIT_SEEKER_NOUNS` + the `_SEEKER_RE` regex in `sources/reddit.py` |

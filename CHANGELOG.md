@@ -2,6 +2,30 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.3.0] — 2026-07-11
+
+Consolidation release: folded the retired `rental-agent` into this agent and
+switched to email-only delivery.
+
+### Changed
+- **Notifications are now email-only.** Telegram is removed entirely (bot,
+  per-region channels, `--get-chat-id` helper, all `TELEGRAM_*` secrets). The
+  digest is delivered by **Gmail SMTP** (`SENDER_EMAIL` + `GMAIL_APP_PASSWORD`
+  → `TARGET_EMAIL`). Rationale: the Telegram pings went unread; email is the
+  channel actually used.
+- **Richer HTML digest** ported from `rental-agent`: per-listing cards (price,
+  neighborhood, badges, description, "View listing" button) grouped into
+  labelled **region sections** within one email. Includes **price-vs-median %**
+  computed from the existing `config.MEDIANS` table. One email per run whenever
+  there are new matches (near-real-time).
+- **Removed Queens** from the search — region, Craigslist search group, and the
+  three `queens/*` SpareRoom area paths all deleted.
+- **Budget lowered:** `MAX_RENT` $2,300 → **$2,000** — a hard ceiling; the user
+  won't go above $2,000.
+
+### Removed
+- Resend email path (replaced by Gmail SMTP).
+
 ## [0.2.0] — 2026-05-30
 
 ### Added
