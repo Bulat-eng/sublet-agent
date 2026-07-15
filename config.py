@@ -49,6 +49,17 @@ REGIONS = {
             "cobble hill", "carroll gardens", "park slope", "gowanus",
         ],
     },
+    # Added 2026-07-14 after a $1,750 rent-stabilized Flatbush studio was missed
+    # (out of scope). Kept deliberately small — Flatbush + its immediate neighbors,
+    # not all of central Brooklyn. Widen here if more central-BK deals slip past.
+    "central_brooklyn": {
+        "label": "Central Brooklyn",
+        "emoji": "🟨",
+        "neighborhoods": [
+            "flatbush", "ditmas park",
+            "prospect lefferts gardens", "prospect-lefferts gardens",
+        ],
+    },
     "new_jersey": {
         "label": "New Jersey",
         "emoji": "🟫",
@@ -148,6 +159,14 @@ REDDIT_SUBLET_KEYWORDS = [
 # the optional "I'm" lets title-style posts match, and the 2-word cap still keeps
 # offers like "looking for someone to take over my lease" out. Add nouns to extend.
 REDDIT_SEEKER_NOUNS = ["apartment", "room", "sublet", "lease"]
+
+# Direct-rental rescue (per-source): a post with no sublet keyword is normally
+# dropped. On the housing subs we instead KEEP it if it names a price — many great
+# listings are straight rentals, not sublets (e.g. "$1750 Rent Stabilized Studio
+# Flatbush"). Rescued posts are flagged "direct rental, not a sublet" and still
+# notified — never silently dropped. r/AskNYC is too noisy (mostly questions) for
+# this, so it stays strict: sublet keyword required or the post is dropped.
+REDDIT_KEYWORD_STRICT_SUBS = ["AskNYC"]
 
 # ─── Sources to enable ────────────────────────────────────────────────────────
 

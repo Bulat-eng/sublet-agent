@@ -212,7 +212,7 @@ def _build_html(listings: list[Listing]) -> str:
   <div style="text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid #E5E7EB;">
     <p style="color:#9CA3AF;font-size:12px;line-height:1.6;margin:0;">
       {html_escape(area_summary)}<br>
-      Max ${config.MAX_RENT:,}/mo · Studios–{config.MAX_BEDROOMS}BR · Sublets · Rooms · Furnished flagged
+      Max ${config.MAX_RENT:,}/mo · Studios–{config.MAX_BEDROOMS}BR · Sublets · Rooms · Direct rentals · Furnished flagged
     </p>
   </div>
 
