@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-07-11 (see CHANGELOG `[0.3.0]`: email-only, Queens removed)._
+_Last updated: 2026-07-14 (see CHANGELOG `[0.4.0]`: Central Brooklyn region + Reddit direct-rental rescue)._
 
 ---
 
@@ -29,7 +29,8 @@ notifier.py                 → Email-only: region-grouped HTML digest (price-vs
 sources/craigslist.py       → CL NYC + NJ (rotating UA, randomized delays).
 sources/listings_project.py → listingsproject.com.
 sources/spareroom.py        → Per-neighborhood SEO area pages (config.SPAREROOM_AREAS).
-sources/reddit.py           → Public RSS; sublet-keyword filter + "seeker" detection.
+sources/reddit.py           → Public RSS; sublet-keyword filter + "seeker" detection +
+                              direct-rental rescue (priced non-sublet posts on housing subs).
 .github/workflows/hunt.yml  → cron (*/15) + workflow_dispatch + state.db commit-back.
 ```
 
@@ -59,7 +60,7 @@ secrets are no longer read and can be deleted. (Secrets live in GitHub, never in
 - **Sublet duration:** 1–12 months (soft tag if outside)
 - **Move-in window:** **2026-06-15 → 2026-09-30** (soft flag if outside)
 - **Furnished:** flagged, not filtered
-- **Neighborhoods:** 4 regions → labelled sections in the digest email: Manhattan (below ~23rd St), North Brooklyn, South Brooklyn, New Jersey. (Queens removed 2026-07-11.) See `REGIONS`.
+- **Neighborhoods:** 5 regions → labelled sections in the digest email: Manhattan (below ~23rd St), North Brooklyn, South Brooklyn, Central Brooklyn (Flatbush / Ditmas Park / Prospect-Lefferts, added 2026-07-14), New Jersey. (Queens removed 2026-07-11.) See `REGIONS`.
 - **SpareRoom:** 28 explicit neighborhood paths in `SPAREROOM_AREAS`.
 
 ---

@@ -90,6 +90,7 @@ def _strip_html(html: str) -> str:
 
 def _fetch_subreddit(sub_name: str) -> list[Listing]:
     url = FEED_TEMPLATE.format(sub=sub_name)
+    keyword_strict = sub_name in config.REDDIT_KEYWORD_STRICT_SUBS
     try:
         resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
         if resp.status_code != 200:
@@ -107,17 +108,26 @@ def _fetch_subreddit(sub_name: str) -> list[Listing]:
             body      = _strip_html(body_html)
 
             full_text = title + " " + body
+            price = _parse_price(full_text)
 
-            # On r/AskNYC most posts aren't sublets — filter hard.
-            # On the others, also require keyword match to skip pure questions/news.
-            if not _matches_sublet_keyword(full_text):
+            # Relevance gate. A sublet keyword always passes. A post with none is
+            # dropped on keyword-strict subs (r/AskNYC — mostly questions/news), but
+            # on the housing subs a post that names a price is RESCUED as a direct
+            # rental (e.g. "$1750 Rent Stabilized Studio Flatbush") — flagged below,
+            # never silently dropped.
+            is_sublet = _matches_sublet_keyword(full_text)
+            if not is_sublet and (keyword_strict or price is None):
                 continue
 
-            # Flag (don't drop) demand-side "seeker" posts: author wants a place,
-            # not offering one. Still notified — just marked "filter not passed".
-            seeker = _is_seeker_post(full_text)
-            if seeker:
+            # Flag (don't drop): seeker posts (author wants a place) and direct
+            # rentals (no sublet keyword). Still notified — just marked.
+            flags: list[str] = []
+            if _is_seeker_post(full_text):
+                flags.append("possible seeker (wants a place, not offering)")
                 logger.info(f"  ↳ flagged seeker post: {title[:70]}")
+            if not is_sublet:
+                flags.append("direct rental, not a sublet")
+                logger.info(f"  ↳ kept direct rental (no sublet keyword): {title[:70]}")
 
             posted_at = None
             if entry.get("published_parsed"):
@@ -128,11 +138,11 @@ def _fetch_subreddit(sub_name: str) -> list[Listing]:
                 source=f"reddit_{sub_name}",
                 url=link,
                 title=title,
-                price=_parse_price(full_text),
+                price=price,
                 duration_months=_parse_duration_months(full_text),
                 body_snippet=body[:300],
                 posted_at=posted_at,
-                flagged="possible seeker (wants a place, not offering)" if seeker else None,
+                flagged="; ".join(flags) or None,
             ))
 
         return out
