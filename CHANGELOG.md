@@ -11,9 +11,12 @@ ever coming from Listings Project, and a request to add liveohana.ai.
 - **Listings Project produced 0 listings on every run.** Their site was
   restructured (the old `/listings/housing/new-york` path now 404s), so the
   scraper had been silently returning nothing — the `except` swallowed the 404.
-  Rebuilt against the current structure: NYC index at `/real-estate/new-york-city`
-  (paginated, first 3 pages), one card per `/listings/<slug>`, stable id from the
-  card's `data-listingid`, neighborhood + move-in/out dates pulled from the card.
+  Rebuilt against the current structure: NYC index at `/real-estate/new-york-city`,
+  one card per `/listings/<slug>`, stable id from the card's `data-listingid`,
+  neighborhood + move-in/out dates pulled from the card. **Scrapes every page**
+  (~60), not just the first few: the front pages are the featured/expensive
+  Manhattan listings, and ~95% of target-neighborhood matches live deeper in the
+  feed (only 22 of 428 were in the first 3 pages).
 - **Weekly/nightly rates were misread as cheap monthly rent.** Listings Project
   quotes many short-term stays per week or per night (`$650/day`, `$850/week`);
   these were parsed as `$650`/`$850` monthly and sailed under the budget cap.
@@ -24,9 +27,13 @@ ever coming from Listings Project, and a request to add liveohana.ai.
 - **Ohana source (liveohana.ai).** Uses Ohana's public Bubble Data API
   (`/api/1.1/obj/listing`) over plain HTTP — no headless browser, so it ships in
   Phase 1, not Phase 2. Constrained server-side to **Live** listings in the
-  NYC-area cities (`config.OHANA_CITIES`), newest first; the shared filter narrows
-  to target neighborhoods. `Prime lease` listings (straight rentals, not sublets)
-  are kept and flagged `direct rental, not a sublet`, matching the Reddit rescue.
+  NYC-area cities (`config.OHANA_CITIES`) that are **at or under `MAX_RENT`**, and
+  paginated through **all** of them (~340) rather than just the newest 100. This
+  matters: of ~1,500 live NYC listings only ~340 are under budget, so a plain
+  "newest 100" spent ~74% of the fetch on over-budget Manhattan listings and left
+  affordable Brooklyn ones unseen. The shared filter still narrows to target
+  neighborhoods. `Prime lease` listings (straight rentals, not sublets) are kept
+  and flagged `direct rental, not a sublet`, matching the Reddit rescue.
 
 ## [0.4.0] — 2026-07-14
 

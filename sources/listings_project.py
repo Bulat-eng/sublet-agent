@@ -30,8 +30,13 @@ from models import Listing
 logger = logging.getLogger(__name__)
 
 NYC_URL = "https://www.listingsproject.com/real-estate/new-york-city"
-MAX_PAGES = 3          # newest ~36 listings; dedup makes re-scraping cheap
-REQUEST_DELAY = 1.0    # polite pause between pages
+# Scrape every page until one comes back empty. The front pages are the featured
+# (mostly pricey Manhattan) listings — the vast majority of target-neighborhood
+# matches live deeper in the feed, so a low page cap silently misses them.
+# MAX_PAGES is a safety ceiling only (the site is ~60 pages); dedup makes
+# re-scraping cheap, and fetch() stops as soon as a page returns no listings.
+MAX_PAGES = 80
+REQUEST_DELAY = 0.7    # polite pause between pages
 
 # Rate-period → monthly multiplier. Listings Project short-term stays quote
 # weekly and nightly rates; leaving those as a raw "monthly" price would let a
@@ -184,21 +189,22 @@ def _fetch_page(page: int) -> list[Listing]:
 
 
 def fetch() -> list[Listing]:
-    """Scrape recent NYC listings from Listings Project (first MAX_PAGES pages)."""
+    """Scrape all NYC listing pages from Listings Project (until one is empty)."""
     out: list[Listing] = []
     seen_ids: set[str] = set()
+    pages_scraped = 0
     try:
         for page in range(1, MAX_PAGES + 1):
             page_listings = _fetch_page(page)
             if not page_listings:
                 break  # ran past the last page (or a transient error) — stop
+            pages_scraped = page
             for l in page_listings:
                 if l.id not in seen_ids:
                     seen_ids.add(l.id)
                     out.append(l)
-            if page < MAX_PAGES:
-                time.sleep(REQUEST_DELAY)
-        logger.info(f"[LP] {len(out)} NYC listings across {page} page(s)")
+            time.sleep(REQUEST_DELAY)
+        logger.info(f"[LP] {len(out)} NYC listings across {pages_scraped} page(s)")
         return out
     except Exception as exc:
         logger.warning(f"LP fetch failed: {exc}")

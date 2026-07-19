@@ -118,33 +118,48 @@ def _to_listing(r: dict) -> Listing | None:
 
 
 def fetch() -> list[Listing]:
-    """Pull recent Live NYC-area listings from the Ohana Bubble Data API."""
+    """Pull all Live, at-or-under-budget NYC-area listings from the Ohana Bubble
+    Data API, paginating with a cursor.
+
+    The price ceiling is applied server-side (`min_rent_number` < MAX_RENT + 1) so
+    we don't burn the fetch on the ~1,200 over-budget listings — and, more to the
+    point, so affordable listings deep in the feed aren't left unseen. Listings
+    with no `min_rent_number` at all are excluded here (price unknown); the shared
+    filter still applies the budget cap as a backstop.
+    """
     constraints = [
         {"key": "status_option_listing_status", "constraint_type": "equals", "value": "Live"},
         {"key": "city_name_text", "constraint_type": "in", "value": config.OHANA_CITIES},
+        {"key": "min_rent_number", "constraint_type": "less than", "value": config.MAX_RENT + 1},
     ]
-    params = {
-        "limit": min(config.OHANA_FETCH_LIMIT, 100),
-        "constraints": json.dumps(constraints),
-        "sort_field": "date_published_date",
-        "descending": "true",
-    }
+    out: list[Listing] = []
+    cursor = 0
     try:
-        resp = requests.get(API_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=25)
-        if resp.status_code != 200:
-            logger.warning(f"[Ohana] HTTP {resp.status_code}")
-            return []
-        results = resp.json().get("response", {}).get("results", [])
+        while cursor < config.OHANA_MAX_LISTINGS:
+            params = {
+                "limit": config.OHANA_PAGE_SIZE,
+                "cursor": cursor,
+                "constraints": json.dumps(constraints),
+                "sort_field": "date_published_date",
+                "descending": "true",
+            }
+            resp = requests.get(API_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=25)
+            if resp.status_code != 200:
+                logger.warning(f"[Ohana] HTTP {resp.status_code} at cursor {cursor}")
+                break
+            body = resp.json().get("response", {})
+            results = body.get("results", [])
+            for r in results:
+                listing = _to_listing(r)
+                if listing:
+                    out.append(listing)
+            cursor += len(results)
+            if body.get("remaining", 0) <= 0 or not results:
+                break
     except Exception as exc:
         logger.warning(f"[Ohana] fetch failed: {exc}")
-        return []
 
-    out: list[Listing] = []
-    for r in results:
-        listing = _to_listing(r)
-        if listing:
-            out.append(listing)
-    logger.info(f"[Ohana] {len(out)} Live NYC-area listings")
+    logger.info(f"[Ohana] {len(out)} Live NYC-area listings (<= ${config.MAX_RENT:,})")
     return out
 
 
