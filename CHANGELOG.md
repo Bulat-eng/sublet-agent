@@ -2,6 +2,32 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.5.0] — 2026-07-19
+
+Coverage + reliability release, prompted by two user reports: no listings were
+ever coming from Listings Project, and a request to add liveohana.ai.
+
+### Fixed
+- **Listings Project produced 0 listings on every run.** Their site was
+  restructured (the old `/listings/housing/new-york` path now 404s), so the
+  scraper had been silently returning nothing — the `except` swallowed the 404.
+  Rebuilt against the current structure: NYC index at `/real-estate/new-york-city`
+  (paginated, first 3 pages), one card per `/listings/<slug>`, stable id from the
+  card's `data-listingid`, neighborhood + move-in/out dates pulled from the card.
+- **Weekly/nightly rates were misread as cheap monthly rent.** Listings Project
+  quotes many short-term stays per week or per night (`$650/day`, `$850/week`);
+  these were parsed as `$650`/`$850` monthly and sailed under the budget cap.
+  Prices are now normalized to a monthly equivalent, and any non-monthly rate is
+  flagged `short-term … rate (~$X/mo equiv)` — surfaced, never silently dropped.
+
+### Added
+- **Ohana source (liveohana.ai).** Uses Ohana's public Bubble Data API
+  (`/api/1.1/obj/listing`) over plain HTTP — no headless browser, so it ships in
+  Phase 1, not Phase 2. Constrained server-side to **Live** listings in the
+  NYC-area cities (`config.OHANA_CITIES`), newest first; the shared filter narrows
+  to target neighborhoods. `Prime lease` listings (straight rentals, not sublets)
+  are kept and flagged `direct rental, not a sublet`, matching the Reddit rescue.
+
 ## [0.4.0] — 2026-07-14
 
 Coverage release, prompted by a $1,750 rent-stabilized Flatbush studio that the

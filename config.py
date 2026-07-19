@@ -138,6 +138,17 @@ MEDIANS = {
     "hoboken":           {"studio": 2400, "1br": 3000, "2br": 4000},
 }
 
+# ─── Ohana (liveohana.ai) ─────────────────────────────────────────────────────
+#
+# liveohana.ai is a Bubble.io app whose public Data API (/api/1.1/obj/listing)
+# returns structured listings — no headless browser needed. It's a national
+# platform, so we constrain server-side to Live listings in the NYC-area cities
+# below and sort newest-first; the shared neighborhood filter narrows the rest.
+# "New York" is Bubble's city label for Manhattan; the boroughs are separate.
+
+OHANA_CITIES = ["New York", "Brooklyn", "Queens", "Manhattan", "Bronx"]
+OHANA_FETCH_LIMIT = 100      # newest N Live NYC-area listings per run
+
 # ─── Reddit subreddits ────────────────────────────────────────────────────────
 
 REDDIT_SUBREDDITS = [
@@ -170,11 +181,13 @@ REDDIT_KEYWORD_STRICT_SUBS = ["AskNYC"]
 
 # ─── Sources to enable ────────────────────────────────────────────────────────
 
-# Phase 1 — no Playwright required
-ENABLED_SOURCES = ["craigslist", "listings_project", "spareroom", "reddit"]
+# Phase 1 — no Playwright required. Ohana joined here (2026-07-19): its public
+# Bubble Data API means it needs plain HTTP, not the headless browser Phase 2
+# originally assumed.
+ENABLED_SOURCES = ["craigslist", "listings_project", "spareroom", "reddit", "ohana"]
 
 # Phase 2 — flip on once Playwright is wired in CI
-# ENABLED_SOURCES += ["ohana", "leasebreak"]
+# ENABLED_SOURCES += ["leasebreak"]
 
 # Facebook: opt-in via ENABLE_FACEBOOK=true env var, local-only
 

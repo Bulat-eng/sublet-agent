@@ -1,6 +1,6 @@
 # 🏙️ NYC Sublet Agent
 
-A free, every-15-minutes agent that hunts NYC sublets across Craigslist, Listings Project, SpareRoom, and Reddit, and emails you a digest when something matches your criteria.
+A free, every-15-minutes agent that hunts NYC sublets across Craigslist, Listings Project, SpareRoom, Reddit, and Ohana (liveohana.ai), and emails you a digest when something matches your criteria.
 
 **Cost: $0/month.** Hosted on GitHub Actions (unlimited free minutes on a public repo) + Gmail SMTP + free Reddit API.
 
@@ -13,11 +13,12 @@ Every 15 minutes, it:
 2. Scrapes **Listings Project** (curated, weekly-refreshing housing listings)
 3. Scrapes **SpareRoom NYC** (~2,300+ live ads, plain HTML)
 4. Pulls recent **Reddit** posts from r/SublettingNYC, r/NYCapartments, r/AskNYC (filtered for sublet keywords)
-5. Filters by your budget, neighborhoods, and basic scam patterns
-6. Deduplicates against the persistent `state.db` (committed back to the repo)
-7. Emails any new matches to you as a single region-grouped HTML digest (Gmail SMTP)
+5. Pulls **Ohana** (liveohana.ai) NYC listings via its public Bubble Data API (plain HTTP)
+6. Filters by your budget, neighborhoods, and basic scam patterns
+7. Deduplicates against the persistent `state.db` (committed back to the repo)
+8. Emails any new matches to you as a single region-grouped HTML digest (Gmail SMTP)
 
-**Phase 2** (commented out, ready to enable): Ohana + LeaseBreak via Playwright.
+**Phase 2** (commented out, ready to enable): LeaseBreak via Playwright.
 **Facebook groups** — evaluated and shelved: automation risks the account, and manual feeding adds no value over reading the post yourself. See `CHANGELOG.md`.
 
 ---
@@ -103,6 +104,7 @@ python -m sources.craigslist
 python -m sources.listings_project
 python -m sources.spareroom
 python -m sources.reddit
+python -m sources.ohana
 ```
 
 Test the email digest (needs SENDER_EMAIL + GMAIL_APP_PASSWORD in `.env`):
@@ -134,16 +136,18 @@ To inspect or run a known-good version directly, check out its tag (e.g. `git ch
 
 ---
 
-## Enabling Phase 2 (Ohana + LeaseBreak)
+## Enabling Phase 2 (LeaseBreak)
 
-These two sources use Playwright (headless browser) because they're JS-heavy / Cloudflare-protected.
+LeaseBreak uses Playwright (headless browser) because it's Cloudflare-protected.
+(Ohana was originally slated for Phase 2 too, but it exposes a public Data API,
+so it runs over plain HTTP in Phase 1 — no Playwright.)
 
 1. In `config.py`, uncomment:
    ```python
-   ENABLED_SOURCES += ["ohana", "leasebreak"]
+   ENABLED_SOURCES += ["leasebreak"]
    ```
 2. In `.github/workflows/hunt.yml`, uncomment the **"Install Playwright + Chromium"** step.
-3. Implement `sources/ohana.py` and `sources/leasebreak.py` (skeletons not included in Phase 1).
+3. Implement `sources/leasebreak.py` (skeleton not included in Phase 1).
 4. Push.
 
 Playwright adds ~30s per run — still well within GitHub Actions free tier.
@@ -164,6 +168,7 @@ Playwright adds ~30s per run — still well within GitHub Actions free tier.
 | `sources/listings_project.py` | listingsproject.com NYC |
 | `sources/spareroom.py` | spareroom.com NYC |
 | `sources/reddit.py` | PRAW for sublet subreddits |
+| `sources/ohana.py` | liveohana.ai NYC listings via public Bubble Data API |
 | `.github/workflows/hunt.yml` | GitHub Actions cron + state commit |
 
 ---
