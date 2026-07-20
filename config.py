@@ -138,6 +138,25 @@ MEDIANS = {
     "hoboken":           {"studio": 2400, "1br": 3000, "2br": 4000},
 }
 
+# ─── Ohana (liveohana.ai) ─────────────────────────────────────────────────────
+#
+# liveohana.ai is a Bubble.io app whose public Data API (/api/1.1/obj/listing)
+# returns structured listings — no headless browser needed. It's a national
+# platform with ~1,500 live NYC listings but only ~340 under budget, so we
+# constrain server-side to Live listings that are (a) in the NYC-area cities
+# below and (b) at or under MAX_RENT, then paginate through all of them. This
+# stops us wasting the fetch on expensive Manhattan listings and, more
+# importantly, from missing affordable Brooklyn listings buried deep in the feed.
+# The shared neighborhood filter still narrows the rest.
+#
+# "New York" is Bubble's city label for Manhattan; the boroughs are separate.
+# ("Manhattan" and "Bronx" as city labels return nothing — Manhattan listings
+# carry the "New York" label — so they're intentionally omitted.)
+
+OHANA_CITIES = ["New York", "Brooklyn", "Queens"]
+OHANA_PAGE_SIZE = 100        # Bubble Data API max page size
+OHANA_MAX_LISTINGS = 600     # safety cap on total pulled per run (well above the ~340 under budget)
+
 # ─── Reddit subreddits ────────────────────────────────────────────────────────
 
 REDDIT_SUBREDDITS = [
@@ -170,11 +189,13 @@ REDDIT_KEYWORD_STRICT_SUBS = ["AskNYC"]
 
 # ─── Sources to enable ────────────────────────────────────────────────────────
 
-# Phase 1 — no Playwright required
-ENABLED_SOURCES = ["craigslist", "listings_project", "spareroom", "reddit"]
+# Phase 1 — no Playwright required. Ohana joined here (2026-07-19): its public
+# Bubble Data API means it needs plain HTTP, not the headless browser Phase 2
+# originally assumed.
+ENABLED_SOURCES = ["craigslist", "listings_project", "spareroom", "reddit", "ohana"]
 
 # Phase 2 — flip on once Playwright is wired in CI
-# ENABLED_SOURCES += ["ohana", "leasebreak"]
+# ENABLED_SOURCES += ["leasebreak"]
 
 # Facebook: opt-in via ENABLE_FACEBOOK=true env var, local-only
 

@@ -10,10 +10,10 @@ Append lessons here as scrapers break and we patch them. Each entry should be:
 | Source | Fragility | First sign of breakage |
 |---|---|---|
 | Craigslist | CSS class names occasionally change (e.g. `li.cl-static-search-result`) | All searches return 0 results; logs show 200 status but empty `out` |
-| Listings Project | URL pattern + card markup; their site redesigns ~yearly | LP fetch returns 0 listings; check page HTML manually |
+| Listings Project | URL pattern + card markup; their site redesigns ~yearly (broke 2026-07) | LP fetch returns 0 listings; check page HTML manually |
 | SpareRoom | Listing card CSS class evolves (`.listing-result` may rename) | Fewer listings than expected; manual page check shows ads exist |
 | Reddit (PRAW) | Reddit API changes are rare but they're aggressive about rate limits | `praw.exceptions.RedditAPIException`; 429 in logs |
-| Ohana | Bubble.io regenerates selector classes on deploy | Playwright finds 0 cards; check `liveohana.ai/sublet/new-york-city` |
+| Ohana | Public Bubble Data API; could be turned off or the `listing` type renamed | `[Ohana] HTTP 4xx/5xx` or 0 results; check `curl 'https://liveohana.ai/api/1.1/obj/listing?limit=1'` |
 | LeaseBreak | Cloudflare challenge bumps | 403 in logs; need to update Playwright stealth config |
 
 ---
@@ -57,6 +57,19 @@ git pull --rebase
 - **Root cause:**
 - **Fix:**
 - **How to detect earlier next time:**
+
+### 2026-07-19 — Listings Project silently returned 0 listings (site restructure)
+- **What broke:** No LP listings had appeared in the digest for a while. The user noticed "I don't see any posts coming from Listings Project."
+- **Symptom in logs:** `LP fetch 404`, then `[LP] 0 NYC listings`. The `except` in `fetch()` meant a bad URL degraded to an empty list instead of an error.
+- **Root cause:** LP restructured their site. Old paths `/listings/housing/new-york`, `/listings/all` now 404. Current NYC index is `/real-estate/new-york-city` (paginated `?page=N`); listing detail URLs are `/listings/<slug>` (no numeric id in the URL — the stable id lives in the card's `data-listingid` attribute). The old regex `\/listings\/[^/]+/[^/]+/\d+` matched nothing.
+- **Fix:** Rewrote `sources/listings_project.py` to parse the new card markup (anchor on `<h4>` title → climb to the ancestor holding `data-listingid`). Also normalized weekly/nightly rates to a monthly equivalent + flag, because LP quotes many short-term stays per day/week and they were being read as cheap monthly rent.
+- **How to detect earlier next time:** A source that returns 0 for many consecutive runs is suspicious even when nothing errors. Sanity-check live with `python -m sources.listings_project`; if it's 404, open `https://www.listingsproject.com/real-estate/new-york-city` in a browser and re-derive the card selectors.
+
+### 2026-07-19 — Added Ohana (liveohana.ai) via its public Bubble Data API
+- **Note (not a break):** liveohana.ai is a Bubble.io app; everything renders client-side, so it was originally slated for Phase 2 (Playwright). But its **public Data API** (`/api/1.1/obj/listing`) returns structured JSON over plain HTTP — no browser needed — so it ships in Phase 1.
+- **Gotchas found live:** rent is in `min_rent_number` / `max_rent_number` / `price_number` (monthly), not a single field; `neighborhood_geographic_address` is unreliable (a Williamsburg listing geocoded to Brisbane AU, an Astoria one to Oregon) so we trust it only when it resolves to NY and otherwise let the title carry the neighborhood; filter to `status = "Live"` or you get a flood of `Draft` rows.
+- **Volume / coverage:** ~1,500 live NYC listings but only ~340 under $2,000. We constrain server-side to `min_rent_number < MAX_RENT+1` and paginate (cursor) through all matches — a plain "newest 100 of everything" wasted ~74% of the fetch on over-budget Manhattan listings and missed affordable Brooklyn ones. Constraint types are Bubble's exact strings: `equals`, `in`, `less than`, `is_empty` (there is no "less than or equal to"). Listings with an empty `min_rent_number` (~23) are excluded by the price constraint.
+- **How to detect breakage:** `[Ohana] HTTP 4xx/5xx` or a sudden drop to 0 results. Probe with `curl 'https://liveohana.ai/api/1.1/obj/listing?limit=1'` — if that 404s or 403s, the Data API was disabled and Ohana would need the Playwright approach after all.
 
 ### 2026-06-05 — Out-of-area listing (Hamilton Heights) routed to Manhattan channel
 - **What broke:** A SpareRoom listing in Hamilton Heights (not in our neighborhood list) was pushed to the Manhattan Telegram channel instead of being rejected.
