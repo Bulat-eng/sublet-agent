@@ -11,12 +11,20 @@ ever coming from Listings Project, and a request to add liveohana.ai.
 - **Listings Project produced 0 listings on every run.** Their site was
   restructured (the old `/listings/housing/new-york` path now 404s), so the
   scraper had been silently returning nothing — the `except` swallowed the 404.
-  Rebuilt against the current structure: NYC index at `/real-estate/new-york-city`,
-  one card per `/listings/<slug>`, stable id from the card's `data-listingid`,
-  neighborhood + move-in/out dates pulled from the card. **Scrapes every page**
-  (~60), not just the first few: the front pages are the featured/expensive
-  Manhattan listings, and ~95% of target-neighborhood matches live deeper in the
-  feed (only 22 of 428 were in the first 3 pages).
+  Rebuilt against the current structure: one card per `/listings/<slug>`, stable
+  id from the card's `data-listingid`, neighborhood + move-in/out dates pulled
+  from the card. **Scrapes every page** of each category (not just the first
+  few): the front pages are the featured/expensive Manhattan listings, and ~95%
+  of target-neighborhood matches live deeper in the feed (only 22 of 428 were in
+  the first 3 pages). Termination is "stop when a page adds no new listings" —
+  LP clamps out-of-range pages to the last page rather than returning empty.
+- **Scrape only the sublet + rental categories** (`/real-estate/new-york-city/sublets`
+  and `/rentals`), not the bare index. The index also interleaves
+  `/seeking_living` (people looking FOR a place — demand-side "ISO"/"looking for
+  a room" noise), `/studios` (which on LP means art/creative *workspaces*, not
+  studio apartments), and `/commercial` (offices). Sublets + rentals together
+  cover every living-space offer — apartments, rooms, houses, and studio
+  *apartments* — while excluding those three buckets.
 - **Weekly/nightly rates were misread as cheap monthly rent.** Listings Project
   quotes many short-term stays per week or per night (`$650/day`, `$850/week`);
   these were parsed as `$650`/`$850` monthly and sailed under the budget cap.

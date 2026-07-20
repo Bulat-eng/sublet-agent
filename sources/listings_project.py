@@ -29,12 +29,22 @@ from models import Listing
 
 logger = logging.getLogger(__name__)
 
-NYC_URL = "https://www.listingsproject.com/real-estate/new-york-city"
-# Scrape every page until one comes back empty. The front pages are the featured
-# (mostly pricey Manhattan) listings — the vast majority of target-neighborhood
-# matches live deeper in the feed, so a low page cap silently misses them.
-# MAX_PAGES is a safety ceiling only (the site is ~60 pages); dedup makes
-# re-scraping cheap, and fetch() stops as soon as a page returns no listings.
+BASE_URL = "https://www.listingsproject.com/real-estate/new-york-city"
+# Scrape only the two living-space *offer* categories. The bare NYC index also
+# interleaves other buckets we don't want:
+#   - /seeking_living → people looking FOR a place (ISO / "looking for a room") —
+#     demand-side noise, explicitly out of scope.
+#   - /studios → on LP this means art/photo/creative *workspaces* ("Art Studios
+#     for Rent"), NOT studio apartments.
+#   - /commercial → offices / desk space.
+# Sublets + rentals together cover every living-space offer — apartments, rooms,
+# houses, and studio *apartments* (those carry "Apartments for Sublet/Rent", so
+# they show up here, not under /studios) — while excluding all of the above.
+CATEGORY_PATHS = ["/sublets", "/rentals"]
+# Scrape every page of each category until one comes back empty. The front pages
+# are the featured (mostly pricey Manhattan) listings — the vast majority of
+# target-neighborhood matches live deeper in the feed. MAX_PAGES is a per-category
+# safety ceiling only; dedup makes re-scraping cheap.
 MAX_PAGES = 80
 REQUEST_DELAY = 0.7    # polite pause between pages
 
@@ -167,8 +177,8 @@ def _parse_card(h4) -> Listing | None:
     )
 
 
-def _fetch_page(page: int) -> list[Listing]:
-    url = NYC_URL if page == 1 else f"{NYC_URL}?page={page}"
+def _fetch_page(base_url: str, page: int) -> list[Listing]:
+    url = base_url if page == 1 else f"{base_url}?page={page}"
     resp = requests.get(url, headers=_headers(), timeout=20)
     if resp.status_code != 200:
         logger.warning(f"LP page {page}: HTTP {resp.status_code}")
@@ -189,22 +199,32 @@ def _fetch_page(page: int) -> list[Listing]:
 
 
 def fetch() -> list[Listing]:
-    """Scrape all NYC listing pages from Listings Project (until one is empty)."""
+    """Scrape all sublet + rental listing pages from Listings Project."""
     out: list[Listing] = []
     seen_ids: set[str] = set()
-    pages_scraped = 0
     try:
-        for page in range(1, MAX_PAGES + 1):
-            page_listings = _fetch_page(page)
-            if not page_listings:
-                break  # ran past the last page (or a transient error) — stop
-            pages_scraped = page
-            for l in page_listings:
-                if l.id not in seen_ids:
-                    seen_ids.add(l.id)
-                    out.append(l)
-            time.sleep(REQUEST_DELAY)
-        logger.info(f"[LP] {len(out)} NYC listings across {pages_scraped} page(s)")
+        for path in CATEGORY_PATHS:
+            base_url = BASE_URL + path
+            pages_scraped = 0
+            for page in range(1, MAX_PAGES + 1):
+                page_listings = _fetch_page(base_url, page)
+                if not page_listings:
+                    break  # ran past the last page (or a transient error) — stop
+                # LP clamps out-of-range pages to the last page instead of
+                # returning empty, so "empty page" never fires — stop as soon as a
+                # page contributes no new listings (i.e. we've seen it all).
+                new = 0
+                for l in page_listings:
+                    if l.id not in seen_ids:
+                        seen_ids.add(l.id)
+                        out.append(l)
+                        new += 1
+                if new == 0:
+                    break
+                pages_scraped = page
+                time.sleep(REQUEST_DELAY)
+            logger.info(f"[LP] {path}: {pages_scraped} page(s)")
+        logger.info(f"[LP] {len(out)} NYC sublet+rental listings")
         return out
     except Exception as exc:
         logger.warning(f"LP fetch failed: {exc}")
