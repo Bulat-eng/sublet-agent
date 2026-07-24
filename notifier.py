@@ -6,7 +6,7 @@ Set SENDER_EMAIL + GMAIL_APP_PASSWORD (env) to the sending Gmail account and
 TARGET_EMAIL to the inbox that receives the digest.
 
 Listings are grouped into labelled sections by region (Manhattan, North
-Brooklyn, South Brooklyn, New Jersey) within a single HTML digest email, sent
+Brooklyn, South Brooklyn) within a single HTML digest email, sent
 once per run whenever there are new matches (near-real-time).
 """
 
@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 SOURCE_LABELS = {
     "craigslist_nyc":   "Craigslist NYC",
-    "craigslist_nj":    "Craigslist NJ",
     "craigslist":       "Craigslist",
     "listings_project": "Listings Project",
     "spareroom":        "SpareRoom",
@@ -282,10 +281,6 @@ def _send_test():
                 url="https://example.com/sbk", title="TEST South BK: $2,100 sublet in Park Slope",
                 price=2100, neighborhood="Park Slope", bedrooms=1,
                 body_snippet="Test notification — South Brooklyn section.", region="south_brooklyn"),
-        Listing(id="test_nj", source="craigslist_nj",
-                url="https://example.com/nj", title="TEST NJ: $1,700 in Jersey City",
-                price=1700, neighborhood="Jersey City", bedrooms=0,
-                body_snippet="Test notification — New Jersey section.", region="new_jersey"),
     ]
     ok = notify(samples)
     print("✅ Sent" if ok else "❌ Send failed — check logs above")

@@ -7,7 +7,7 @@ import os
 
 # ─── Your preferences ─────────────────────────────────────────────────────────
 
-MAX_RENT = 2000                  # hard filter: reject listings above this monthly price
+MAX_RENT = 1800                  # hard filter: reject listings above this monthly price
 MIN_RENT = 700                   # quality filter: scam-suspicious below this
 MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 
@@ -23,7 +23,7 @@ LATEST_MOVE_IN   = "2026-09-30"  # ISO date; flag listings starting after
 #
 # Regions group listings into labelled sections inside the digest email.
 # A listing is assigned to the first region whose neighborhood appears in it.
-# (Queens was removed 2026-07-11 — no longer part of the search.)
+# (Queens was removed 2026-07-11; New Jersey was removed 2026-07-24 — no longer part of the search.)
 
 REGIONS = {
     "manhattan": {
@@ -60,11 +60,6 @@ REGIONS = {
             "prospect lefferts gardens", "prospect-lefferts gardens",
         ],
     },
-    "new_jersey": {
-        "label": "New Jersey",
-        "emoji": "🟫",
-        "neighborhoods": ["jersey city", "hoboken", "journal square", "newport"],
-    },
 }
 
 # Derived: flat list of all neighborhood keywords (used by filter + scrapers)
@@ -84,9 +79,6 @@ CL_SEARCH_GROUPS = {
         "downtown brooklyn carroll gardens",
         "park slope cobble hill",
     ],
-    "nj": [
-        "jersey city hoboken",
-    ],
 }
 
 # ─── SpareRoom search areas ───────────────────────────────────────────────────
@@ -96,8 +88,7 @@ CL_SEARCH_GROUPS = {
 # like Hamilton Heights) are never returned — much better signal than the broad
 # /nyc page, where low-volume downtown targets get buried under high-volume
 # uptown listings. Paths verified live 2026-06-05.
-# No dedicated SpareRoom page: Seaport, Journal Square, Newport (the latter two
-# are covered by jersey_city). Add/remove paths to widen or narrow coverage.
+# No dedicated SpareRoom page: Seaport. Add/remove paths to widen or narrow coverage.
 
 SPAREROOM_AREAS = [
     # Manhattan (below ~23rd St)
@@ -113,8 +104,6 @@ SPAREROOM_AREAS = [
     "brooklyn/downtown_brooklyn", "brooklyn/dumbo", "brooklyn/boerum_hill",
     "brooklyn/cobble_hill", "brooklyn/carroll_gardens", "brooklyn/park_slope",
     "brooklyn/gowanus",
-    # New Jersey
-    "nj/hudson_county/jersey_city", "nj/hudson_county/hoboken",
 ]
 
 
@@ -134,8 +123,6 @@ MEDIANS = {
     "tribeca":           {"studio": 3800, "1br": 5000, "2br": 7000},
     "chelsea":           {"studio": 3000, "1br": 3800, "2br": 5200},
     "lower east side":   {"studio": 2700, "1br": 3200, "2br": 4500},
-    "jersey city":       {"studio": 2200, "1br": 2800, "2br": 3600},
-    "hoboken":           {"studio": 2400, "1br": 3000, "2br": 4000},
 }
 
 # ─── Ohana (liveohana.ai) ─────────────────────────────────────────────────────
