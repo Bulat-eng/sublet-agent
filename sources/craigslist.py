@@ -38,7 +38,6 @@ CATEGORIES = {
 
 CL_SITES = {
     "nyc": "https://newyork.craigslist.org",
-    "nj":  "https://newjersey.craigslist.org",
 }
 
 MAX_RESULTS_PER_SEARCH = 30

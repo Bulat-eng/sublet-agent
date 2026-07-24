@@ -2,6 +2,26 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.6.0] — 2026-07-24
+
+Preferences release: the user lowered their budget and decided against living in
+New Jersey, so NJ is dropped from the search entirely. Same shape as the v0.3.0
+Queens removal + budget change.
+
+### Changed
+- **Budget lowered:** `MAX_RENT` $2,000 → **$1,800** — a hard ceiling; the user
+  won't go above $1,800. One constant drives everything, so it propagates to the
+  filter, the Craigslist `max_price`, the Ohana server-side price ceiling, and the
+  digest subject + footer.
+
+### Removed
+- **Removed New Jersey** from the search — region (Jersey City, Hoboken, Journal
+  Square, Newport), the `nj` Craigslist search group **and** the
+  `newjersey.craigslist.org` site, the two `nj/hudson_county/*` SpareRoom area
+  paths, and the Jersey City / Hoboken `MEDIANS` entries all deleted. Because the
+  neighborhood allow-list is derived from `REGIONS`, NJ listings arriving from
+  national sources (Ohana, Reddit, SpareRoom) now fall out as "wrong area."
+
 ## [0.5.0] — 2026-07-19
 
 Coverage + reliability release, prompted by two user reports: no listings were
