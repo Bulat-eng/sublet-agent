@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-07-24 (see CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey). Released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-07-30 — diagnostic session only, **no code changes**: verified the Listings Project source is healthy in production and confirmed its steady-state weekly-Wednesday cadence (see "Last session" below). Last **code** change was 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -71,6 +71,18 @@ secrets are no longer read and can be deleted. (Secrets live in GitHub, never in
 
 ---
 
+## Last session (2026-07-30) — diagnostic only, no code changes
+
+The user asked why no Listings Project listings had shown up recently — bug, or genuinely no matches? Traced the full pipeline live. **Not a bug** — everything working as designed:
+
+- **Scraper healthy.** A live fetch pulled **318** NYC sublet+rental listings, parsed correctly (prices, neighborhoods, dates).
+- **22 currently pass the filter** (in-budget + target neighborhood), and **all 22 had already been emailed** — most recently in the **Wed 7/29 ~11 AM ET** refresh. Cross-referenced every passing listing against the cloud `seen` table: **0 genuinely-new being wrongly suppressed**. (Marking-seen is gated on a successful send in `main.py`, so their presence in `seen` also proves the digest actually went out.)
+- **LP is a weekly pulse.** Listings Project refreshes ~weekly (its own "Wednesday digest" cadence). Confirmed in the data: new in-budget LP matches landed **Wed 7/22 (25)** and **Wed 7/29 (22)** — exactly 7 days apart (the 40 on Mon 7/20 was the one-time initial backfill of pre-existing inventory). Between Wednesdays, dedup correctly suppresses the already-sent batch, so the LP portion of the digest is empty until the next refresh. Other sources still feed the digest daily, so digests aren't empty in between.
+- **Budget is the yield cap, not a bug.** Of 161 in-neighborhood LP listings, only 22 fit under $1,800 (44 at $2,500, 60 at $3,000); ~82% of all LP listings are rejected on price alone. **Rooms/shares are fully included** — most matches are exactly that; there is no room-type filter anywhere.
+- **Noted for a future session:** `config.MAX_BEDROOMS = 2` is **dead code** — defined but never referenced in `filter.py`/`main.py`, so it silently filters nothing. Decide whether to wire it into the filter or delete it (a stale-looking cap is a footgun). Separately, the $700 `MIN_RENT` floor drops sub-$700 rooms as scam-suspicious — relevant if very cheap shared rooms are ever wanted.
+
+---
+
 ## What changed in the last session (2026-07-24) — PR #13, merged `2dda848`, tagged `v0.6.0`
 
 Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG `[0.5.0]`).
@@ -86,7 +98,7 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 
 1. **⚠️ Cron is throttled (biggest issue).** GitHub runs the `*/15` schedule only **every ~2–4 hours** on this public repo, so listings arrive stale — a real handicap in a fast rental market. Fix: an external pinger (e.g. cron-job.org → `repository_dispatch`, or hitting `workflow_dispatch`). **Not yet done.** Once fixed, the cadence gating (item below) actually starts earning its keep.
 2. **Node 20 action deprecation.** `hunt.yml` uses `actions/checkout@v4` + `actions/setup-python@v5` (Node 20); GitHub forces Node 24 on **2026-06-16**. Bump the action versions. _(A task chip was spawned for this.)_
-3. **First-run notification burst is imminent (expected, accepted).** v0.5.0 massively widened coverage — end-to-end testing showed **~104 matches** currently passing the filter (LP 0→372, Ohana +342). The **next scheduled run** will email that whole backlog in one big digest, then dedup keeps later ones small. The user was asked and **explicitly wants it uncapped** ("the first digest will be big — it's fine"). No per-run cap added by choice; still easy to add later if it becomes annoying.
+3. **First-run notification burst — RESOLVED (2026-07-30).** The anticipated big first digest went out and the system is now in **steady state**: dedup keeps each run small and per-source volume has settled (LP is now a ~20-listing weekly-Wednesday pulse — see "Last session (2026-07-30)"). No per-run cap was added (user wanted it uncapped) and none has proven necessary. Verified healthy in production 2026-07-30. _(Original note: v0.5.0 widened coverage to ~104 matches — LP 0→372, Ohana +342 — and the first scheduled run emailed that whole backlog at once, as expected/accepted.)_
 4. **SpareRoom area-URL dependency.** 26 hardcoded slugs in `SPAREROOM_AREAS`. If SpareRoom renames an area path it 404s (logged warning, run continues). No dedicated SpareRoom page for **Seaport**.
 5. **Cadence gating is mostly dormant** while the cron only fires every 2–4h (always longer than the 30m/6h cadences). It's forward-looking insurance for when item #1 is fixed.
 6. **Remaining off sources:** **LeaseBreak** (Phase 2, Cloudflare-protected → needs Playwright, skeleton not written) and **Facebook** (shelved / opt-in). Ohana is now **on** (Phase 1, public API — no Playwright). See README.
