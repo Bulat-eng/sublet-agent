@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-07-30 — diagnostic session only, **no code changes**: verified the Listings Project source is healthy in production and confirmed its steady-state weekly-Wednesday cadence (see "Last session" below). Last **code** change was 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -71,7 +71,28 @@ secrets are no longer read and can be deleted. (Secrets live in GitHub, never in
 
 ---
 
-## Last session (2026-07-30) — diagnostic only, no code changes
+## Last session (2026-08-16) — diagnostic only, no code changes
+
+The user reported that Ohana listings pass the filter and show one price in the digest, but the listing page shows a **much higher, over-budget** price. Traced live against the Bubble Data API and the rendered page. **Three independent causes**, only one of which is our bug. Nothing was changed — the user said "nevermind for now."
+
+**1. Real bug — `min_rent_number` is the cheapest room, not the room you get.** `_price()` in `sources/ohana.py` reads `min_rent_number` first. On a multi-room listing that is the *floor* across all rooms, and sometimes it's simply stale/wrong. Measured against the 278 listings the agent currently considers at ≤$1,800:
+- **20** have more than one priced room
+- **13** have a `min_rent_number` that disagrees with their own cheapest room
+- **12** pass the budget filter while containing a room *over* $1,800
+
+  Worst live example: `peaceful-room-with-private-entrance-in-carroll-gardens` — digest would say **$1,498**, cheapest actual room is **$2,354**. Others: `2br-fully-furnished-in-the-ues` $1,605 → $1,739; `room-in-3br1ba-apt-4-mins-6-train` $1,502 → $1,605.
+
+**2. Variable pricing (not fully fixable via the Data API).** The *listing* field `dynamic_pricing_boolean` is `False`, which is why this was missed — but the **`room`** object carries `variable_pricing__boolean`, and **51 of 278 (18%)** have it set. For those, the API rent is a base and the site quotes a term/date-dependent number. Example: `private-room-in-new-york-302` API base $2,006.46, page quotes **$2,119** for its Sep 15 dates.
+
+**3. Price drift (not a bug).** The listing the user clicked has exactly one room, so cause 1 can't apply — the host genuinely re-priced it. All **15** units at 7 Eldridge St (same pro host, "Sam" / OJH Holdings) were re-priced between the 8/11 digest and 8/16; they're $1,835–$2,285 now, vs the $1,489/$1,585 that was emailed. Compounding this: `state.db`'s `seen` table stores only `id, url, source, seen_at` — **no price** — so a listing is never re-checked after first sight and the emailed price is a permanent snapshot.
+
+**Confirmed as *not* a problem:** the emailed price is already inclusive of Ohana's 7% renter fee. The room object exposes both sides — `rent_earned_by_host_number` (1875.2) × 1.07 = `rent_number` (2006.46).
+
+**Key discovery for whoever picks this up:** there is a **`room` object type** at `/api/1.1/obj/room`, queryable exactly like `listing`, filterable by `listing_custom_product` (the listing `_id`). It holds the per-room truth: `rent_number`, `rent_earned_by_host_number`, `variable_pricing__boolean`. `sources/ohana.py` never reads it. See open item #8 for the proposed fix.
+
+---
+
+## Previous session (2026-07-30) — diagnostic only, no code changes
 
 The user asked why no Listings Project listings had shown up recently — bug, or genuinely no matches? Traced the full pipeline live. **Not a bug** — everything working as designed:
 
@@ -103,7 +124,11 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 5. **Cadence gating is mostly dormant** while the cron only fires every 2–4h (always longer than the 30m/6h cadences). It's forward-looking insurance for when item #1 is fixed.
 6. **Remaining off sources:** **LeaseBreak** (Phase 2, Cloudflare-protected → needs Playwright, skeleton not written) and **Facebook** (shelved / opt-in). Ohana is now **on** (Phase 1, public API — no Playwright). See README.
 7. **Ohana coverage caveats.** Only listings with a populated `min_rent_number` are fetched — ~23 price-unknown ones are excluded by the server-side price ceiling (mention if the user ever wants them, flagged). City labels `Manhattan`/`Bronx` return nothing (Manhattan uses `New York`), so they're intentionally omitted from `OHANA_CITIES`. If the public Data API is ever disabled, Ohana would need the Playwright approach after all — detect via `[Ohana] HTTP 4xx/5xx` or a drop to 0 results.
-8. **Region mis-routing on cross-mentions (minor, pre-existing).** `filter._assign_region` returns the *first* region whose neighborhood keyword appears anywhere in the text (incl. body), Manhattan first. A Brooklyn listing whose body says "20 min to Chelsea" can land in the Manhattan section. Cosmetic (affects the digest section, not whether a listing shows); more visible now with ~104 matches. Not fixed this session.
+8. **⚠️ Ohana digest prices can be wrong / over budget (diagnosed 2026-08-16, NOT fixed).** Three causes, detailed in "Last session (2026-08-16)". Proposed fix, in priority order — the user deferred all of it:
+   1. **Read the `room` object** (`/api/1.1/obj/room`, filter `listing_custom_product` in `[listing ids]`, batch ~40 ids per call — ~7 calls for the current 278). Price from the real room instead of the listing rollup, and budget-filter on that. ~30 lines in `sources/ohana.py`. Fixes cause 1 outright.
+   2. **Flag variable-pricing listings** in the digest ("price varies by term — verify on site") when any room has `variable_pricing__boolean`. Trivial; mitigates cause 2. Can't be fully fixed without emulating the booking widget.
+   3. **Store price in `seen` + re-check known listings** each run — schema migration in `db.py` plus a re-fetch loop in `main.py`. Fixes cause 3 and would enable "price dropped" alerts. Bigger job; deferred.
+9. **Region mis-routing on cross-mentions (minor, pre-existing).** `filter._assign_region` returns the *first* region whose neighborhood keyword appears anywhere in the text (incl. body), Manhattan first. A Brooklyn listing whose body says "20 min to Chelsea" can land in the Manhattan section. Cosmetic (affects the digest section, not whether a listing shows); more visible now with ~104 matches. Not fixed this session.
 
 ---
 

@@ -14,6 +14,7 @@ Append lessons here as scrapers break and we patch them. Each entry should be:
 | SpareRoom | Listing card CSS class evolves (`.listing-result` may rename) | Fewer listings than expected; manual page check shows ads exist |
 | Reddit (PRAW) | Reddit API changes are rare but they're aggressive about rate limits | `praw.exceptions.RedditAPIException`; 429 in logs |
 | Ohana | Public Bubble Data API; could be turned off or the `listing` type renamed | `[Ohana] HTTP 4xx/5xx` or 0 results; check `curl 'https://liveohana.ai/api/1.1/obj/listing?limit=1'` |
+| Ohana (prices) | `min_rent_number` is a rollup, not the real room price — **known wrong**, see 2026-08-16 log entry | Silent: no log signal. Digest price ≠ price on the listing page |
 | LeaseBreak | Cloudflare challenge bumps | 403 in logs; need to update Playwright stealth config |
 
 ---
@@ -57,6 +58,17 @@ git pull --rebase
 - **Root cause:**
 - **Fix:**
 - **How to detect earlier next time:**
+
+### 2026-08-16 — Ohana digest price ≠ price on the listing page (DIAGNOSED, NOT FIXED)
+- **What broke:** Listings passed the budget filter and showed e.g. $1,489 / $1,585 in the digest; clicking through to liveohana.ai showed a much higher, over-budget price ($2,119).
+- **Symptom in logs:** *None* — nothing errors. This is a silent correctness bug, which is why it went unnoticed. Only visible by comparing a digest price against the live page.
+- **Root cause — three independent things, only the first is ours:**
+  1. **`min_rent_number` is the listing-wide floor, not the price of a specific room.** `_price()` in `sources/ohana.py` reads it first. On multi-room listings it's the cheapest room; sometimes it's just stale. Of 278 listings currently ≤$1,800: 20 have >1 priced room, 13 have a `min_rent_number` that disagrees with their own cheapest room, and 12 pass the filter while containing a room over budget. Worst case seen live: `peaceful-room-with-private-entrance-in-carroll-gardens`, digest $1,498 vs cheapest real room $2,354.
+  2. **Variable pricing is flagged on the room, not the listing.** `listing.dynamic_pricing_boolean` was `False` while `room.variable_pricing__boolean` was `True` — 51/278 (18%) are like this. For those the API rent is a base and the site quotes a term/date-dependent figure.
+  3. **Hosts re-price frequently and we never re-check.** All 15 units at 7 Eldridge St were re-priced within 5 days of being emailed. `seen` stores only `id, url, source, seen_at` — no price — so the digest price is a permanent snapshot and a listing is never revisited.
+- **Fix:** *Not applied* — user deferred (2026-08-16). Plan is in HANDOFF open item #8: read the room object for real per-room rents, flag variable-pricing listings in the digest, and (bigger) persist price in `seen` to re-check.
+- **The thing worth knowing:** there is an undocumented **`room` object type** on the same Data API — `/api/1.1/obj/room`, filter `listing_custom_product` = listing `_id` (use `constraint_type: "in"` and batch ~40 ids per call). Fields: `rent_number` (renter-facing), `rent_earned_by_host_number`, `variable_pricing__boolean`, `type_of_place_option_type_of_place`. Also confirms **Ohana's fee is 7%**: `rent_earned_by_host_number` × 1.07 = `rent_number`, so the price we email is already fee-inclusive.
+- **How to detect earlier next time:** price-correctness bugs are invisible in logs — you have to spot-check. Periodically diff a few digest prices against their live pages. A quick assertion worth adding: for each Ohana listing, compare `listing.min_rent_number` against `min(room.rent_number)` and warn on any mismatch. Generally: when a Bubble app exposes one object type, look for the related types before trusting a rollup field on the parent.
 
 ### 2026-07-19 — Listings Project silently returned 0 listings (site restructure)
 - **What broke:** No LP listings had appeared in the digest for a while. The user noticed "I don't see any posts coming from Listings Project."
