@@ -50,7 +50,23 @@ jobs:
             git add state.db
             if ! git diff --cached --quiet; then
               git commit -m "state: $(date -u +%FT%TZ)"
-              git push
+              # Another run may have pushed state.db while this one was scraping.
+              # Rebase onto it before pushing; keep OUR state.db on conflict, since
+              # it is a superset (this run saw everything the earlier one did).
+              for attempt in 1 2 3; do
+                if git push; then
+                  echo "state pushed on attempt $attempt"
+                  exit 0
+                fi
+                echo "push rejected — rebasing onto origin/main (attempt $attempt)"
+                git fetch origin main
+                git rebase origin/main || {
+                  git checkout --ours state.db
+                  git add state.db
+                  git -c core.editor=true rebase --continue || git rebase --abort
+                }
+              done
+              echo "::warning::could not push state.db after 3 attempts; next run will re-commit it"
             else
               echo "No state changes to commit"
             fi
