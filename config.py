@@ -204,7 +204,7 @@ SOURCE_CADENCE_MINUTES = {
 # login password) at myaccount.google.com/apppasswords and set both vars below.
 SENDER_EMAIL       = os.environ.get("SENDER_EMAIL", "")       # the Gmail that sends
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "") # 16-char app password
-TARGET_EMAIL       = os.environ.get("TARGET_EMAIL", "REDACTED@example.com")  # inbox that receives
+TARGET_EMAIL       = os.environ.get("TARGET_EMAIL", "")  # inbox that receives
 
 # Reddit uses public RSS feeds — no credentials needed.
 
