@@ -89,3 +89,50 @@ git pull --rebase
 - **Root cause:** `filter._assign_region` matched neighborhood keywords as raw substrings (`hood in text_low`). The abbreviation `"les"` (Lower East Side) is a substring of common words — "stain**les**s", "wire**les**s", "tab**les**" — and `"lic"` (Long Island City) hides inside "po**lic**e". SpareRoom scrapes *all* of NYC and leans entirely on the filter for area, so these got mis-routed rather than dropped.
 - **Fix:** Match neighborhoods as whole words/phrases with `\b(?:...)\b` (`_hood_regex` in `filter.py`, precompiled per region). Verified Hamilton Heights/Harlem/Washington Heights/Inwood now reject while LES/LIC/Park Slope/etc. still route.
 - **How to detect earlier next time:** If an out-of-area listing slips through, run `python -c "from filter import _assign_region; print(_assign_region('<card text>'))"` to see which keyword matched. Be wary of any short abbreviation (`les`, `lic`, `fidi`, `noho`) when adding new keywords.
+
+---
+
+## 2026-08-18 — All runs failing in 4s: GitHub Actions free-minutes exhausted
+
+**Symptom:** every scheduled run `failure` after 4–5s, no logs, no step output.
+`gh run view --log` returns "log not found" (the job never started, so there is
+nothing to log). No emails since 2026-08-15.
+
+**Root cause:** NOT a code bug. The job annotation (only visible via the API,
+not in the runs list) said:
+
+```bash
+gh api repos/<owner>/<repo>/actions/runs/<run_id>/jobs --jq '.jobs[0].id'
+gh api repos/<owner>/<repo>/check-runs/<job_id>/annotations
+```
+
+> The job was not started because recent account payments have failed or your
+> spending limit needs to be increased.
+
+Private repos draw from a **2,000 min/month** free allowance on GitHub Free.
+Billing page showed `2,000 / 2,000 min used`. Growth in run volume caused it:
+505 runs (Jun) → 843 (Jul) → 864 in the first 15 days of Aug. Adding Zumper and
+Craigslist-sublets on 2026-07-27 also lengthened each run (sublet-agent averages
+5.4 billable min/run vs bk-apartment-agent's 1.0), so sublet-agent alone was
+77% of the spend.
+
+**Gotcha that caused a wrong first diagnosis:** the Actions API returns max 100
+runs per request. Without `--paginate` a month looks far smaller than it is.
+Always use `gh api --paginate`. Also note GitHub rounds each job UP to a whole
+billable minute.
+
+**Fix applied:** made this repo **public** (public repos get unlimited free
+Actions) and disabled bk-apartment-agent's workflow.
+
+**Second gotcha — force-push does NOT remove secrets from GitHub.** After
+rewriting history with `git filter-repo --replace-text` to purge a personal
+email, the orphaned commits were still served by SHA:
+
+```bash
+gh api "repos/<owner>/<repo>/contents/config.py?ref=<old_sha>"
+```
+
+still returned the old content, and the old SHAs are discoverable because
+workflow runs record them as `head_sha`. Going public would have re-exposed the
+data. **The only reliable purge is a fresh repo**: rename the old one, create a
+new one, push the rewritten history, verify old SHAs 404.
