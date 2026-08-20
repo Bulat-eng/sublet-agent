@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. **The `schedule` trigger has never fired on the new repo** — see open item #1, this is the one thing still broken. Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -36,7 +36,9 @@ sources/reddit.py           → Public RSS; sublet-keyword filter + "seeker" det
 sources/ohana.py            → liveohana.ai public Bubble Data API (plain HTTP, no browser).
                               Live NYC-area listings ≤ MAX_RENT, cursor-paginated; Prime-lease
                               (straight rentals) kept & flagged "direct rental, not a sublet".
-.github/workflows/hunt.yml  → cron (*/15) + workflow_dispatch + state.db commit-back.
+.github/workflows/hunt.yml  → cron (7,22,37,52 — off the congested :00/:15/:30/:45
+                              slots) + workflow_dispatch + state.db commit-back
+                              (rebases + retries on concurrent runs).
 ```
 
 The live agent runs from **`main` HEAD** — every tick checks out whatever is on `main`.
@@ -47,15 +49,18 @@ The live agent runs from **`main` HEAD** — every tick checks out whatever is o
 
 | Service | Where | Purpose |
 |---|---|---|
-| **GitHub** | github.com/**Bulat-eng**/sublet-agent (renamed from `Bulat-personal`; old URL redirects) | Source + Actions hosting (free, public repo) |
+| **GitHub** | github.com/**Bulat-eng**/sublet-agent — **recreated 2026-08-18 as a brand-new PUBLIC repo** (public ⇒ unlimited free Actions). The previous private repo is preserved, read-only, as `sublet-agent-private-old` (workflow disabled). | Source + Actions hosting (free, public repo) |
 | **Gmail SMTP** | smtp.gmail.com:465 (App Password) | Sends the digest email |
 | **Reddit** | public `/new/.rss` feeds | No auth/app needed |
 | **Ohana** | `liveohana.ai/api/1.1/obj/listing` (public Bubble Data API) | No auth/app needed — plain HTTP |
 
 ### GitHub Secrets (Settings → Secrets and variables → Actions)
 `SENDER_EMAIL` (sending Gmail), `GMAIL_APP_PASSWORD` (16-char app password),
-`TARGET_EMAIL` (inbox that receives). The old `TELEGRAM_*` / `RESEND_API_KEY`
-secrets are no longer read and can be deleted. (Secrets live in GitHub, never in code.)
+`TARGET_EMAIL` (inbox that receives). All three were **re-created 2026-08-19** on the new
+repo; the legacy `TELEGRAM_*` / `RESEND_API_KEY` secrets did not carry over and are gone.
+(Secrets live in GitHub, never in code.) **Secrets are write-only — you cannot read an old
+value back**, so if the app password is ever lost it must be regenerated at
+`myaccount.google.com/apppasswords`. Sender and target are both the same Gmail.
 
 ---
 
@@ -71,7 +76,48 @@ secrets are no longer read and can be deleted. (Secrets live in GitHub, never in
 
 ---
 
-## Last session (2026-08-16) — diagnostic only, no code changes
+## Last session (2026-08-20) — outage recovery + repo migration
+
+**Symptom reported:** no emails since 2026-08-15, "GitHub is full of failed attempts".
+
+**Root cause (not a code bug).** Every scheduled run was failing in 4–5s with no logs,
+because the job never started. The reason is only visible via the API:
+
+```bash
+gh api repos/<owner>/<repo>/actions/runs/<run_id>/jobs --jq '.jobs[0].id'
+gh api repos/<owner>/<repo>/check-runs/<job_id>/annotations
+```
+
+> The job was not started because recent account payments have failed or your spending
+> limit needs to be increased.
+
+The account's **2,000 min/month free private-repo Actions allowance was exhausted**
+(billing page read 2,000/2,000; GitHub Free plan, no failed payment). Usage had simply
+grown: **505 runs (Jun) → 843 (Jul) → 864 in the first 15 days of Aug**, and adding Zumper
++ CL-sublets on 2026-07-27 lengthened each run. This repo averages **5.4 billable min/run**
+and was **77%** of the account's Actions spend.
+
+**What was done:**
+1. **Repo made public** (public repos get unlimited free Actions). Because a plain
+   force-push does NOT purge orphaned commits from GitHub — old SHAs stayed readable, and
+   workflow runs publish them as `head_sha` — a clean publish required a **fresh repo**:
+   old one renamed `sublet-agent-private-old`, history rewritten with `git filter-repo`
+   to purge the personal email, pushed to a brand-new public repo. Verified: old SHAs 404.
+2. **Email default scrubbed** from `config.py` and `.env.example` (it was hardcoded in both).
+3. **Gmail credentials regenerated.** The old pair returned `535 BadCredentials` and was
+   unrecoverable. Delivery **verified working** 2026-08-19 and again 2026-08-20
+   (`Gmail SMTP: digest sent` → 97 and 53 listings).
+4. **`state.db` push made resilient** to concurrent runs (rebase + retry, keeps ours on
+   conflict) — commit `38cc0f7`.
+5. **Stale branches deleted** — only `main` remains.
+6. **Cron slot changed** `*/15` → `7,22,37,52` (commit `aac53c2`) to force schedule
+   re-registration and dodge the congested quarter-hour slots. **Unverified — see item #1.**
+
+**Backups:** `~/Documents/_archive/bundles/sublet-agent-backup-20260818-094536.bundle`.
+
+---
+
+## Previous session (2026-08-16) — diagnostic only, no code changes
 
 The user reported that Ohana listings pass the filter and show one price in the digest, but the listing page shows a **much higher, over-budget** price. Traced live against the Bubble Data API and the rendered page. **Three independent causes**, only one of which is our bug. Nothing was changed — the user said "nevermind for now."
 
@@ -117,8 +163,13 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 
 ## Open items / current limitations
 
-1. **⚠️ Cron is throttled (biggest issue).** GitHub runs the `*/15` schedule only **every ~2–4 hours** on this public repo, so listings arrive stale — a real handicap in a fast rental market. Fix: an external pinger (e.g. cron-job.org → `repository_dispatch`, or hitting `workflow_dispatch`). **Not yet done.** Once fixed, the cadence gating (item below) actually starts earning its keep.
-2. **Node 20 action deprecation.** `hunt.yml` uses `actions/checkout@v4` + `actions/setup-python@v5` (Node 20); GitHub forces Node 24 on **2026-06-16**. Bump the action versions. _(A task chip was spawned for this.)_
+1. **🔴 THE CRON HAS NEVER FIRED ON THE NEW REPO (biggest issue — currently blocking autonomy).** As of 2026-08-20, **every run this repo has ever had was `workflow_dispatch`; `schedule` count is 0** over 2+ days. Note `workflow_dispatch` is one-shot — a manual run never seeds future runs, so between manual pokes the agent is simply dead.
+   - **Ruled out:** the workflow file (diffed against the old repo — the `on: schedule` block was byte-identical), default branch (`main`), fork/archived/disabled status, Actions permissions (`enabled=true, allowed_actions=all`), workflow state (`active`).
+   - **Disproved theory:** exhausted Actions minutes do NOT suppress `schedule`. The old repo shows **100/100 runs with `event=schedule`** firing right through the billing block — GitHub created the runs and merely refused to start them.
+   - **Root cause still unknown**, and it is GitHub-side. The only material change is that this is a brand-new repo whose scheduler never activated.
+   - **Attempted fix (unverified):** cron moved to `7,22,37,52` in `aac53c2` — rewriting the cron line forces re-registration, and odd minutes avoid the heavily oversubscribed `:00/:15/:30/:45` slots.
+   - **If that fails, escalate in this order:** (a) delete `hunt.yml`, push, re-add, push again (harder re-registration); (b) recreate it under a NEW filename e.g. `hunt2.yml` — GitHub treats that as an entirely new workflow with a fresh schedule; (c) external pinger (cron-job.org → `workflow_dispatch`, needs a fine-grained PAT given to a third party); (d) GitHub Support — a public repo with a valid cron on the default branch that never fires in 48h+ is arguably a platform bug.
+2. **Node 20 action deprecation — RESOLVED.** `hunt.yml` now pins `actions/checkout@v6.0.3` + `actions/setup-python@v6.2.0`.
 3. **First-run notification burst — RESOLVED (2026-07-30).** The anticipated big first digest went out and the system is now in **steady state**: dedup keeps each run small and per-source volume has settled (LP is now a ~20-listing weekly-Wednesday pulse — see "Last session (2026-07-30)"). No per-run cap was added (user wanted it uncapped) and none has proven necessary. Verified healthy in production 2026-07-30. _(Original note: v0.5.0 widened coverage to ~104 matches — LP 0→372, Ohana +342 — and the first scheduled run emailed that whole backlog at once, as expected/accepted.)_
 4. **SpareRoom area-URL dependency.** 26 hardcoded slugs in `SPAREROOM_AREAS`. If SpareRoom renames an area path it 404s (logged warning, run continues). No dedicated SpareRoom page for **Seaport**.
 5. **Cadence gating is mostly dormant** while the cron only fires every 2–4h (always longer than the 30m/6h cadences). It's forward-looking insurance for when item #1 is fixed.
@@ -128,7 +179,9 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
    1. **Read the `room` object** (`/api/1.1/obj/room`, filter `listing_custom_product` in `[listing ids]`, batch ~40 ids per call — ~7 calls for the current 278). Price from the real room instead of the listing rollup, and budget-filter on that. ~30 lines in `sources/ohana.py`. Fixes cause 1 outright.
    2. **Flag variable-pricing listings** in the digest ("price varies by term — verify on site") when any room has `variable_pricing__boolean`. Trivial; mitigates cause 2. Can't be fully fixed without emulating the booking widget.
    3. **Store price in `seen` + re-check known listings** each run — schema migration in `db.py` plus a re-fetch loop in `main.py`. Fixes cause 3 and would enable "price dropped" alerts. Bigger job; deferred.
-9. **Region mis-routing on cross-mentions (minor, pre-existing).** `filter._assign_region` returns the *first* region whose neighborhood keyword appears anywhere in the text (incl. body), Manhattan first. A Brooklyn listing whose body says "20 min to Chelsea" can land in the Manhattan section. Cosmetic (affects the digest section, not whether a listing shows); more visible now with ~104 matches. Not fixed this session.
+9. **⚠️ A GREEN RUN DOES NOT MEAN EMAIL WAS SENT.** `main.py` exits 0 after a delivery failure, so the workflow shows **success** while silently sending nothing — exactly how a broken digest can go unnoticed for days. It does correctly skip marking listings as seen on failure, so nothing is lost and they retry next run. **Proposed fix (offered, not yet approved): make delivery failure fail the run** so it shows red. To spot it manually, grep a run log for `Gmail SMTP` / `Notification failed`.
+10. **Mac-side launchd pinger is a TEMPORARY crutch for item #1.** `~/.local/bin/sublet-hunt-ping.sh` + LaunchAgent `~/Library/LaunchAgents/com.bulat.sublet-hunt-ping.plist` (`StartInterval 900`) dispatch the workflow every 15 min via `gh workflow run`; no token is stored (uses the keychain `gh` login), and the scrape still runs on GitHub's runners so the Mac need only be awake ~1s. Logs to `~/Library/Logs/sublet-hunt-ping.log`. **The user explicitly does not want Mac reliance — remove this the moment the cron works:** `launchctl bootout gui/$(id -u)/com.bulat.sublet-hunt-ping`. Gotcha: `launchctl load` returns `Load failed: 5: Input/output error` when the job is already registered — that error is harmless; check with `launchctl print gui/$(id -u)/com.bulat.sublet-hunt-ping`.
+11. **Region mis-routing on cross-mentions (minor, pre-existing).** `filter._assign_region` returns the *first* region whose neighborhood keyword appears anywhere in the text (incl. body), Manhattan first. A Brooklyn listing whose body says "20 min to Chelsea" can land in the Manhattan section. Cosmetic (affects the digest section, not whether a listing shows); more visible now with ~104 matches. Not fixed this session.
 
 ---
 
