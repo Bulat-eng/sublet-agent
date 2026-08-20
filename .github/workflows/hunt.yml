@@ -2,8 +2,10 @@ name: sublet-hunt
 
 on:
   schedule:
-    # Every 15 minutes. GitHub may delay by up to ~10 min under load — that's fine.
-    - cron: "*/15 * * * *"
+    # Every 15 min at :07/:22/:37/:52 — deliberately OFF the :00/:15/:30/:45
+    # slots, which are the most oversubscribed on GitHub's shared scheduler
+    # and the first to be dropped under load.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:    # allow manual triggers from the Actions tab
 
 # Allow the job to push state.db back to the repo
