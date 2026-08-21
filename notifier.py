@@ -5,9 +5,9 @@ Delivery: Gmail SMTP (smtp.gmail.com:465) using a Gmail App Password.
 Set SENDER_EMAIL + GMAIL_APP_PASSWORD (env) to the sending Gmail account and
 TARGET_EMAIL to the inbox that receives the digest.
 
-Listings are grouped into labelled sections by region (Manhattan, North
-Brooklyn, South Brooklyn) within a single HTML digest email, sent
-once per run whenever there are new matches (near-real-time).
+Listings are grouped into labelled sections by region (Midtown, Midtown → FiDi,
+FiDi, North Brooklyn, Central Brooklyn, South Brooklyn) within a single HTML
+digest email, sent once per run whenever there are new matches (near-real-time).
 """
 
 from __future__ import annotations
@@ -268,18 +268,30 @@ def notify(listings: list[Listing]) -> bool:
 def _send_test():
     """Send a hardcoded test digest across the regions."""
     samples = [
+        Listing(id="test_mid", source="spareroom",
+                url="https://example.com/mid", title="TEST Midtown: $1,750 room in Murray Hill",
+                price=1750, neighborhood="Murray Hill", bedrooms=1,
+                body_snippet="Test notification — Midtown section.", region="midtown"),
         Listing(id="test_m", source="craigslist_nyc",
-                url="https://example.com/m", title="TEST Manhattan: $2,200 sublet in East Village",
+                url="https://example.com/m", title="TEST Midtown→FiDi: $2,200 sublet in East Village",
                 price=2200, neighborhood="East Village", duration_months=3,
                 move_in_date="2026-06-15", furnished=True, bedrooms=1,
-                body_snippet="Test notification — Manhattan section.", region="manhattan"),
+                body_snippet="Test notification — Midtown → FiDi section.", region="midtown_to_fidi"),
+        Listing(id="test_fidi", source="craigslist_nyc",
+                url="https://example.com/fidi", title="TEST FiDi: $1,800 studio in Financial District",
+                price=1800, neighborhood="Financial District", bedrooms=0,
+                body_snippet="Test notification — FiDi section.", region="fidi"),
         Listing(id="test_nbk", source="spareroom",
-                url="https://example.com/nbk", title="TEST North BK: $1,900 room in Williamsburg",
-                price=1900, neighborhood="Williamsburg", bedrooms=1,
+                url="https://example.com/nbk", title="TEST North BK: $1,900 room in East Williamsburg",
+                price=1900, neighborhood="East Williamsburg", bedrooms=1,
                 body_snippet="Test notification — North Brooklyn section.", region="north_brooklyn"),
-        Listing(id="test_sbk", source="craigslist_nyc",
-                url="https://example.com/sbk", title="TEST South BK: $2,100 sublet in Park Slope",
+        Listing(id="test_cbk", source="craigslist_nyc",
+                url="https://example.com/cbk", title="TEST Central BK: $2,100 sublet in Park Slope",
                 price=2100, neighborhood="Park Slope", bedrooms=1,
+                body_snippet="Test notification — Central Brooklyn section.", region="central_brooklyn"),
+        Listing(id="test_sbk", source="craigslist_nyc",
+                url="https://example.com/sbk", title="TEST South BK: $1,700 sublet in Ditmas Park",
+                price=1700, neighborhood="Ditmas Park", bedrooms=1,
                 body_snippet="Test notification — South Brooklyn section.", region="south_brooklyn"),
     ]
     ok = notify(samples)
