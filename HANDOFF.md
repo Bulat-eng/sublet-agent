@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. **The `schedule` trigger has never fired on the new repo** — see open item #1, this is the one thing still broken. Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -30,7 +30,10 @@ sources/craigslist.py       → CL NYC (rotating UA, randomized delays).
 sources/listings_project.py → listingsproject.com /sublets + /rentals categories, ALL
                               pages (stops when a page adds no new listings). Weekly/nightly
                               rates normalized to a monthly equivalent + flagged.
-sources/spareroom.py        → Per-neighborhood SEO area pages (config.SPAREROOM_AREAS).
+sources/spareroom.py        → Per-neighborhood SEO area pages (config.SPAREROOM_AREAS),
+                              PLUS a search-endpoint fallback (config.SPAREROOM_SEARCH_QUERIES)
+                              for areas with no SEO page. Tiles parsed from their
+                              data-listing-* attributes; permalinks rebuilt from listing id.
 sources/reddit.py           → Public RSS; sublet-keyword filter + "seeker" detection +
                               direct-rental rescue (priced non-sublet posts on housing subs).
 sources/ohana.py            → liveohana.ai public Bubble Data API (plain HTTP, no browser).
@@ -39,6 +42,11 @@ sources/ohana.py            → liveohana.ai public Bubble Data API (plain HTTP,
 .github/workflows/hunt.yml  → cron (7,22,37,52 — off the congested :00/:15/:30/:45
                               slots) + workflow_dispatch + state.db commit-back
                               (rebases + retries on concurrent runs).
+.github/workflows/ci.yml    → PR + push-to-main checks: module imports, region-routing
+                              tests, config integrity. Ignores state.db pushes so the
+                              bot's ~96 daily state commits don't each trigger a run.
+test_regions.py             → 30 region-routing cases. No pytest — run it directly.
+                              RE-RUN AFTER ANY `REGIONS` EDIT (ordering is load-bearing).
 ```
 
 The live agent runs from **`main` HEAD** — every tick checks out whatever is on `main`.
@@ -71,12 +79,103 @@ value back**, so if the app password is ever lost it must be regenerated at
 - **Sublet duration:** 1–12 months (soft tag if outside)
 - **Move-in window:** **2026-06-15 → 2026-09-30** (soft flag if outside)
 - **Furnished:** flagged, not filtered
-- **Neighborhoods:** 4 regions → labelled sections in the digest email: Manhattan (below ~23rd St), North Brooklyn, South Brooklyn, Central Brooklyn (Flatbush / Ditmas Park / Prospect-Lefferts, added 2026-07-14). (Queens removed 2026-07-11; New Jersey removed 2026-07-24.) See `REGIONS`.
-- **SpareRoom:** 26 explicit neighborhood paths in `SPAREROOM_AREAS`.
+- **Neighborhoods:** **66 areas across 6 regions** (was 30 / 4), each a labelled section in the digest:
+  | Region | Emoji | Covers |
+  |---|---|---|
+  | `midtown` | 🟧 | ~34th–59th: Theater District, Hudson Yards, Garment District, Koreatown, Herald Sq, Midtown East/South, Sutton Place, Turtle Bay, Tudor City, Murray Hill |
+  | `midtown_to_fidi` | 🟦 | ~Canal–34th: Chelsea, Flatiron, Gramercy, Kips Bay, NoMad, Rose Hill, Union Sq, Meatpacking, Stuy Town, Peter Cooper, the Villages, Alphabet City, NoHo/Nolita/Little Italy/SoHo, Hudson Sq, Bowery, LES, Co-op Village, Chinatown, Two Bridges |
+  | `fidi` | 🟥 | Financial District, Battery Park City, WTC, Civic Center, Seaport, Tribeca |
+  | `north_brooklyn` | 🟩 | Greenpoint, Williamsburg (+ east/north/south/side variants, "los sures") |
+  | `central_brooklyn` | 🟨 | Downtown BK, DUMBO, Brooklyn Heights, Vinegar Hill, Boerum/Cobble Hill, Carroll Gardens, Columbia St Waterfront, Fort Greene, Clinton Hill, Gowanus, Park Slope, South Slope, Prospect Heights, Bed-Stuy |
+  | `south_brooklyn` | 🟪 | Windsor Terrace, Greenwood Heights, Sunset Park, Prospect Lefferts Gardens, Crown Heights, Flatbush, Ditmas Park, Prospect Park South |
+
+  **`REGIONS` dict order is load-bearing** — `filter._assign_region` returns the *first region* that matches, so `central_brooklyn` MUST precede `south_brooklyn` (a Park Slope listing naming "Flatbush Ave" would otherwise be mislabelled South). Covered by `test_regions.py`.
+  (Queens removed 2026-07-11; New Jersey 2026-07-24; **Bushwick 2026-08-21**. Hell's Kitchen deliberately excluded.)
+- **SpareRoom:** **42** neighborhood paths in `SPAREROOM_AREAS`, plus `SPAREROOM_SEARCH_QUERIES` for areas with no SEO page (currently just `"Bedford Stuyvesant"`).
+- **⚠️ `MEDIANS` still covers only the original 13 neighborhoods**, so the "% vs median" line in the digest is silently skipped for all 36 newly-added areas — including Bed-Stuy and Crown Heights, the two the fall-hunt plan actually targets.
 
 ---
 
-## Last session (2026-08-20) — outage recovery + repo migration
+## Last session (2026-08-21) — coverage expansion + CI
+
+**What the user asked for:** add the neighborhoods shown in four maps they pasted, then trim.
+**How they wanted it done:** *plan first.* They pushed back twice on wasted effort — "Before
+actually doing work, lets make a plan"; "I feel like We will be doing a lot of unnessesary
+work." **Show the proposed list and wait for confirmation before editing `config.py`.**
+
+### 1. Search area doubled — `v0.7.0`
+30 → **66 neighborhoods**, 4 → **6 regions** (table under "Search criteria"). Manhattan was
+split into three north-to-south bands at the user's request ("Midtown, Fidi, and Anything
+between Midtown and FIdi"); Brooklyn was re-cut so Central holds the brownstone belt and
+South is the true southern band. **Bed-Stuy + Crown Heights are now in** — closing the
+neighborhood re-spec that had been pending from the 2026-06-16 strategy reframe.
+
+Removed: **Bushwick**, Red Hook (never added), Hell's Kitchen (declined), and **Queens from
+`OHANA_CITIES`** — a leftover from the 2026-07-11 region removal that was fetching Queens
+listings only for the filter to discard them.
+
+> ⚠️ Dropping Bushwick does not fully close it: `east williamsburg` is how a lot of
+> Bushwick-border inventory markets itself, so some still arrives under that label.
+
+### 2. Bed-Stuy SpareRoom gap closed — `v0.7.1`
+The gap that `v0.7.0` left open. **The obvious diagnosis was wrong and cost time — read this
+before touching `sources/spareroom.py`:**
+
+- A missing SEO area page **302s to a location-disambiguation FORM that still returns HTTP
+  200.** `requests` follows the redirect automatically, so "just follow the redirect" was
+  never the fix, and any `status_code == 200` check reads "no such place" as "no listings".
+- **The `<Area>, <Borough>` format in the redirect URL does not work.** `"Bed Stuy, Brooklyn"`,
+  `"Bedford-Stuyvesant, Brooklyn"` and `"Bed-Stuy"` all disambiguate.
+- **What works is the bare gazetteer name:** `"Bedford Stuyvesant"` — no hyphen, no borough
+  — **326 results**. Now in `config.SPAREROOM_SEARCH_QUERIES`, consumed by `_fetch_search()`.
+- **Trap: bare `"Seaport"` resolves to Redwood City, CALIFORNIA.** Always check where a
+  search name lands before adding it. The filter drops off-target results, so the symptom is
+  wasted requests, not bad email — it looks like a working query in the logs.
+- **Only Bed-Stuy was recoverable.** South Slope, Turtle Bay, Midtown South, NoMad, Rose Hill,
+  Hudson Square, WTC, Herald Square, Peter Cooper Village and Cooperative Village have **no**
+  usable search name and stay uncovered by SpareRoom (still reachable via CL/Reddit/Ohana/LP).
+
+**Bug fixed along the way:** listing tiles carry `data-listing-*` attributes on *both* page
+types. The old parser took the first anchor in a tile, which on search pages is a URL-encoded
+tracking fragment → mangled links and unstable ids. Now parsed from the attributes, with the
+permalink rebuilt as `/roommate/room_for_rent.pl?flatshare_id=<data-listing-id>`. **Verified
+id-compatible with the 348 existing `sr_*` rows in `state.db`** (11/11 against a live page),
+so no re-notification storm. Generic borough values ("Brooklyn") are discarded so `filter.py`
+can derive a better hood; `"Bedford - Stuyvesant"` is collapsed to match the config keyword.
+
+### 3. CI added
+`.github/workflows/ci.yml` — module imports, `test_regions.py` (30 cases), and config
+integrity (duplicate keywords across regions, non-lowercase keywords, malformed SpareRoom
+paths). Each integrity check was **negative-tested** to confirm it actually fails on bad
+input. Green on PR #1 in 9s.
+
+### 4. Local repo moved out of `~/Documents`
+Mid-session, macOS **TCC** revoked access to `~/Documents` (and `~/Desktop`, `~/Downloads`) —
+every read failed `EPERM`, including `git`. This is a macOS privacy grant, *not* a Claude Code
+sandbox issue (disabling the sandbox changed nothing). The repo now lives at
+**`~/Developer/sublet-agent`**, which is outside TCC and needs no permission grant.
+`~/Developer` and `~/Proff Development` are unprotected; `~/Library`, `~/.config` and dotfiles
+are too (they hold more sensitive material than Documents does, so TCC's boundary is not a
+sensitivity ranking). The launchd pinger was **unaffected** — it targets
+`-R Bulat-eng/sublet-agent`, not a local path.
+
+### 5. Git identity
+No `user.name`/`user.email` was configured, so git derived
+`Bulat Khalilrakhmanov <bulat@Bulats-MacBook-Air.local>` per-machine (three variants exist in
+history). Checked before acting: that identity is **already on 20 commits in `main`**, so the
+new commits added no fresh exposure and **no history rewrite was needed** — important given
+that force-pushing does not purge orphaned commits from GitHub. Now set globally to
+`Bulat-eng <272103303+Bulat-eng@users.noreply.github.com>`.
+_Note: commit metadata still carries `bulat.k.dev@gmail.com` on 8 older commits. The August
+scrub purged `milkypillow@gmail.com` from **file contents**, not from commit metadata. If that
+address was also meant to be private, that is a separate — and much larger — cleanup._
+
+**Verified in production:** first scheduled run on the merged SHA (`e40b438`, 19:08Z) succeeded
+end-to-end — 11 CL listings → 5 kept (**0 "wrong area"**) → 1 new → `Gmail SMTP: digest sent`.
+
+---
+
+## Previous session (2026-08-20) — outage recovery + repo migration
 
 **Symptom reported:** no emails since 2026-08-15, "GitHub is full of failed attempts".
 
@@ -163,16 +262,29 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 
 ## Open items / current limitations
 
-1. **🔴 THE CRON HAS NEVER FIRED ON THE NEW REPO (biggest issue — currently blocking autonomy).** As of 2026-08-20, **every run this repo has ever had was `workflow_dispatch`; `schedule` count is 0** over 2+ days. Note `workflow_dispatch` is one-shot — a manual run never seeds future runs, so between manual pokes the agent is simply dead.
-   - **Ruled out:** the workflow file (diffed against the old repo — the `on: schedule` block was byte-identical), default branch (`main`), fork/archived/disabled status, Actions permissions (`enabled=true, allowed_actions=all`), workflow state (`active`).
-   - **Disproved theory:** exhausted Actions minutes do NOT suppress `schedule`. The old repo shows **100/100 runs with `event=schedule`** firing right through the billing block — GitHub created the runs and merely refused to start them.
-   - **Root cause still unknown**, and it is GitHub-side. The only material change is that this is a brand-new repo whose scheduler never activated.
-   - **Attempted fix (unverified):** cron moved to `7,22,37,52` in `aac53c2` — rewriting the cron line forces re-registration, and odd minutes avoid the heavily oversubscribed `:00/:15/:30/:45` slots.
-   - **If that fails, escalate in this order:** (a) delete `hunt.yml`, push, re-add, push again (harder re-registration); (b) recreate it under a NEW filename e.g. `hunt2.yml` — GitHub treats that as an entirely new workflow with a fresh schedule; (c) external pinger (cron-job.org → `workflow_dispatch`, needs a fine-grained PAT given to a third party); (d) GitHub Support — a public repo with a valid cron on the default branch that never fires in 48h+ is arguably a platform bug.
+1. **✅ CRON — RESOLVED 2026-08-21.** The `schedule` trigger now fires: **25 of the last 40
+   runs are `event=schedule`** (it was 0 across 2+ days). The fix was the previous session's
+   unverified change — moving the cron off the oversubscribed `:00/:15/:30/:45` slots to
+   `7,22,37,52` (`aac53c2`), which both re-registers the schedule and dodges the slots GitHub
+   drops first under load. **Caveat:** it is still throttled — real firings are ~30–50 min
+   apart, not 15. That is far better than the "every 2–4h" in older notes, and worlds better
+   than never. No further action needed unless cadence regresses; the escalation ladder
+   (delete/re-add `hunt.yml`, rename to `hunt2.yml`, external pinger, GitHub Support) is
+   preserved in the 2026-08-20 section if it does.
 2. **Node 20 action deprecation — RESOLVED.** `hunt.yml` now pins `actions/checkout@v6.0.3` + `actions/setup-python@v6.2.0`.
 3. **First-run notification burst — RESOLVED (2026-07-30).** The anticipated big first digest went out and the system is now in **steady state**: dedup keeps each run small and per-source volume has settled (LP is now a ~20-listing weekly-Wednesday pulse — see "Last session (2026-07-30)"). No per-run cap was added (user wanted it uncapped) and none has proven necessary. Verified healthy in production 2026-07-30. _(Original note: v0.5.0 widened coverage to ~104 matches — LP 0→372, Ohana +342 — and the first scheduled run emailed that whole backlog at once, as expected/accepted.)_
-4. **SpareRoom area-URL dependency.** 26 hardcoded slugs in `SPAREROOM_AREAS`. If SpareRoom renames an area path it 404s (logged warning, run continues). No dedicated SpareRoom page for **Seaport**.
-5. **Cadence gating is mostly dormant** while the cron only fires every 2–4h (always longer than the 30m/6h cadences). It's forward-looking insurance for when item #1 is fixed.
+4. **SpareRoom area-URL dependency.** **42** hardcoded slugs in `SPAREROOM_AREAS`, all
+   verified HTTP 200 on 2026-08-21. A renamed path does **not** 404 — it **302s to a
+   disambiguation form that returns 200**, so it fails *silently*. `_fetch_search()` detects
+   that page ("several possible matches") and logs a warning; the area-page path does not.
+   Ten areas have no SEO page and no usable search name (listed in the 2026-08-21 section) —
+   Seaport among them, and bare `"Seaport"` searches resolve to **California**.
+5. **Cadence gating is now live.** With the cron fixed (item #1) and the pinger still
+   running, ticks arrive every ~15 min — shorter than the 30m SpareRoom / 6h Listings
+   Project cadences, so `SOURCE_CADENCE_MINUTES` is actively skipping sources rather than
+   being dormant insurance. Expect `skipped (Nm since last run < Xm cadence)` lines in run
+   logs; that is correct behaviour, not a fault. It does mean **a given run may not exercise
+   the source you're debugging** — check the log before concluding a scraper is broken.
 6. **Remaining off sources:** **LeaseBreak** (Phase 2, Cloudflare-protected → needs Playwright, skeleton not written) and **Facebook** (shelved / opt-in). Ohana is now **on** (Phase 1, public API — no Playwright). See README.
 7. **Ohana coverage caveats.** Only listings with a populated `min_rent_number` are fetched — ~23 price-unknown ones are excluded by the server-side price ceiling (mention if the user ever wants them, flagged). City labels `Manhattan`/`Bronx` return nothing (Manhattan uses `New York`), so they're intentionally omitted from `OHANA_CITIES`. If the public Data API is ever disabled, Ohana would need the Playwright approach after all — detect via `[Ohana] HTTP 4xx/5xx` or a drop to 0 results.
 8. **⚠️ Ohana digest prices can be wrong / over budget (diagnosed 2026-08-16, NOT fixed).** Three causes, detailed in "Last session (2026-08-16)". Proposed fix, in priority order — the user deferred all of it:
@@ -180,8 +292,23 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
    2. **Flag variable-pricing listings** in the digest ("price varies by term — verify on site") when any room has `variable_pricing__boolean`. Trivial; mitigates cause 2. Can't be fully fixed without emulating the booking widget.
    3. **Store price in `seen` + re-check known listings** each run — schema migration in `db.py` plus a re-fetch loop in `main.py`. Fixes cause 3 and would enable "price dropped" alerts. Bigger job; deferred.
 9. **⚠️ A GREEN RUN DOES NOT MEAN EMAIL WAS SENT.** `main.py` exits 0 after a delivery failure, so the workflow shows **success** while silently sending nothing — exactly how a broken digest can go unnoticed for days. It does correctly skip marking listings as seen on failure, so nothing is lost and they retry next run. **Proposed fix (offered, not yet approved): make delivery failure fail the run** so it shows red. To spot it manually, grep a run log for `Gmail SMTP` / `Notification failed`.
-10. **Mac-side launchd pinger is a TEMPORARY crutch for item #1.** `~/.local/bin/sublet-hunt-ping.sh` + LaunchAgent `~/Library/LaunchAgents/com.bulat.sublet-hunt-ping.plist` (`StartInterval 900`) dispatch the workflow every 15 min via `gh workflow run`; no token is stored (uses the keychain `gh` login), and the scrape still runs on GitHub's runners so the Mac need only be awake ~1s. Logs to `~/Library/Logs/sublet-hunt-ping.log`. **The user explicitly does not want Mac reliance — remove this the moment the cron works:** `launchctl bootout gui/$(id -u)/com.bulat.sublet-hunt-ping`. Gotcha: `launchctl load` returns `Load failed: 5: Input/output error` when the job is already registered — that error is harmless; check with `launchctl print gui/$(id -u)/com.bulat.sublet-hunt-ping`.
-11. **Region mis-routing on cross-mentions (minor, pre-existing).** `filter._assign_region` returns the *first* region whose neighborhood keyword appears anywhere in the text (incl. body), Manhattan first. A Brooklyn listing whose body says "20 min to Chelsea" can land in the Manhattan section. Cosmetic (affects the digest section, not whether a listing shows); more visible now with ~104 matches. Not fixed this session.
+10. **🟡 Mac-side launchd pinger — NOW REMOVABLE (item #1 is fixed).** The user
+    **explicitly does not want Mac reliance**, and the cron works again as of 2026-08-21, so
+    this crutch has served its purpose. It is still running (~every 15 min) and currently
+    *supplements* the throttled cron, which is why observed cadence looks tighter than
+    `schedule` alone. **Decide with the user: remove it, or keep it for tighter timing.**
+    Remove with `launchctl bootout gui/$(id -u)/com.bulat.sublet-hunt-ping`, then delete
+    `~/.local/bin/sublet-hunt-ping.sh` and `~/Library/LaunchAgents/com.bulat.sublet-hunt-ping.plist`.
+    Files: script + LaunchAgent (`StartInterval 900`), no token stored (keychain `gh` login),
+    logs to `~/Library/Logs/sublet-hunt-ping.log`. Gotcha: `launchctl load` returns
+    `Load failed: 5: Input/output error` when already registered — harmless; check with
+    `launchctl print gui/$(id -u)/com.bulat.sublet-hunt-ping`.
+11. **Region mis-routing on cross-mentions (minor, pre-existing).** `filter._assign_region` returns the *first* region whose neighborhood keyword appears anywhere in the text (incl. body), Manhattan first. A Brooklyn listing whose body says "20 min to Chelsea" can land in the Manhattan section. Cosmetic (affects the digest section, not whether a listing shows). **Partly mitigated
+    2026-08-21:** the ordering that matters most is now deliberate and test-covered —
+    `central_brooklyn` precedes `south_brooklyn` so "Flatbush Ave" cross-street mentions
+    route correctly (`test_regions.py`). The general cross-borough case remains: Manhattan
+    regions are checked first, so a Sunset Park listing saying "Brooklyn Chinatown" lands in
+    `midtown_to_fidi`.
 
 ---
 
@@ -196,6 +323,9 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 | Test the changed sources | `python -m sources.listings_project` · `python -m sources.ohana` (both print a sample; no email/DB writes) |
 | Change per-source frequency | Edit `SOURCE_CADENCE_MINUTES` (Ohana 20m, Listings Project 6h) |
 | Tune Reddit seeker detection | `REDDIT_SEEKER_NOUNS` + the `_SEEKER_RE` regex in `sources/reddit.py` |
+| **Run the region tests (after ANY `REGIONS` edit)** | `.venv/bin/python test_regions.py` — 30 cases, no pytest needed |
+| Add a SpareRoom area | Add to `SPAREROOM_AREAS`; **verify it returns HTTP 200 first** — a bad path 302s to a form that still returns 200 |
+| Cover an area with no SpareRoom SEO page | Add the **bare gazetteer name** to `SPAREROOM_SEARCH_QUERIES`; confirm where it resolves (`"Seaport"` → California) |
 | Debug why a listing routed somewhere | `python -c "from filter import _assign_region; print(_assign_region('<card text>'))"` |
 | Deploy a change | PR into `main` (agent runs from `main` HEAD); cron picks it up next tick |
 | Roll back a bad release | `git revert -m 1 <merge-sha> && git push origin main` |
@@ -207,10 +337,12 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 ## Run / test locally
 
 ```bash
+cd ~/Developer/sublet-agent          # moved out of ~/Documents 2026-08-21 (macOS TCC)
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env      # fill in your own secrets — never commit it
 python main.py            # full run
+python test_regions.py               # region routing (fast, no network)
 python -m sources.spareroom          # test a single source
 python -m sources.listings_project   # LP: /sublets + /rentals, all pages (~50s)
 python -m sources.ohana              # Ohana: Live NYC listings ≤ MAX_RENT (~9s)
