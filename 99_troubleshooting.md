@@ -136,3 +136,105 @@ still returned the old content, and the old SHAs are discoverable because
 workflow runs record them as `head_sha`. Going public would have re-exposed the
 data. **The only reliable purge is a fresh repo**: rename the old one, create a
 new one, push the rewritten history, verify old SHAs 404.
+
+---
+
+## SpareRoom: a 302 means the area page does not exist (2026-08-21)
+
+When adding new `SPAREROOM_AREAS` paths, verify each one before committing it.
+SpareRoom does **not** 404 for an unknown area — it 302-redirects to its generic
+search endpoint, so a naive "did the request succeed?" check passes for paths
+that will never return targeted listings.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" \
+  "https://www.spareroom.com/rooms-for-rent/brooklyn/bed_stuy"
+# → 302, i.e. NO area page
+```
+
+Only **HTTP 200** means a real SEO area page exists. Inspecting the redirect
+target shows what's actually happening:
+
+```bash
+curl -s -o /dev/null -w "%{redirect_url}\n" \
+  "https://www.spareroom.com/rooms-for-rent/brooklyn/bed_stuy"
+# → .../roommate/search.pl?...&search=Bed%20Stuy%2C%20Brooklyn&...
+```
+
+Areas confirmed to have **no** SEO page: Bed-Stuy (every spelling tried —
+`bed_stuy`, `bed-stuy`, `bedstuy`, `bedford_stuyvesant`, `bedford-stuyvesant`),
+South Slope, Turtle Bay, Midtown South, NoMad, Rose Hill, Hudson Square, World
+Trade Center, Herald Square, Peter Cooper Village, Cooperative Village, Seaport,
+Hell's Kitchen, Times Square.
+
+**Correction (same day, after implementing it).** The paragraph originally here
+said the redirect proves the area "is searchable" and that following it would
+recover Bed-Stuy. Both halves were wrong, and the details matter:
+
+1. **`requests` already follows the redirect** (`allow_redirects=True` by
+   default) and gets HTTP 200 — so "follow the redirect" was never the fix.
+2. **The 200 page is a location-disambiguation FORM, not results.** It contains
+   exactly one `/flatshare/` link ("post a room wanted ad") and the text
+   "We found several possible matches for your search". Any scraper that trusts
+   `status_code == 200` will silently return nothing here.
+3. **The `<Area>, <Borough>` format shown in the redirect URL does not work.**
+   `"Bed Stuy, Brooklyn"` disambiguates, and so do `"Bedford-Stuyvesant,
+   Brooklyn"`, `"Bedford Stuyvesant, Brooklyn"` and `"Bed-Stuy"`.
+
+**What actually works** is the bare, correctly-spelled gazetteer name — for
+Bed-Stuy, `"Bedford Stuyvesant"` with no hyphen and no borough → **326 results**.
+Implemented 2026-08-21 as `_fetch_search()` + `config.SPAREROOM_SEARCH_QUERIES`.
+
+**Two traps when adding more search queries:**
+
+- **Check where a name resolves before trusting it.** Bare `"Seaport"` returns
+  listings in **Redwood City, California** (Friendly Acres, Redwood Village).
+  The neighborhood filter drops them, so the damage is wasted requests rather
+  than bad email — but it looks like a working query in the logs.
+- **Detect the disambiguation page explicitly.** `_fetch_search()` checks for
+  "several possible matches" and logs a warning, because a silent empty result
+  is indistinguishable from "no listings today".
+
+These names were each checked and have **no** usable search query, so SpareRoom
+does not cover them at all: South Slope, Turtle Bay, Midtown South, NoMad, Rose
+Hill, Hudson Square, World Trade Center, Herald Square, Peter Cooper Village,
+Cooperative Village.
+
+## SpareRoom tiles carry data-listing-* attributes — use them (2026-08-21)
+
+Both page types render tiles as `<li class="listing-result">` with structured
+attributes: `data-listing-id`, `-title`, `-neighbourhood`,
+`-ad-rate-normalised` (+ `-period`). Parsing those beats scraping rendered text,
+and it fixed a real bug — the visible anchor differs between page types
+(`fad_click.pl` tracking redirect on SEO pages, `room_for_rent.pl` on search
+pages), so the old text parser produced mangled URL-encoded hrefs on search
+pages. The permalink is now rebuilt from the id:
+`{BASE}/roommate/room_for_rent.pl?flatshare_id=<data-listing-id>`.
+
+`data-listing-id` matches the ids the old URL-digit regex produced (verified
+11/11 against a live page), so switching cost no dedup state — important, since
+`state.db` held 348 `sr_*` rows that would otherwise all re-notify.
+
+Two gotchas: `data-listing-neighbourhood` is sometimes just the borough
+("Brooklyn"), which is worse than letting `filter.py` derive the hood from the
+matched keyword — so generic values are discarded (`_GENERIC_HOODS`). And it
+spaces out some hyphenated names ("Bedford - Stuyvesant"), which the parser
+collapses so the config keyword matches.
+
+## Neighborhood keywords: region ORDER is load-bearing (2026-08-21)
+
+`filter._assign_region` iterates `config.REGIONS` in dict order and returns the
+first **region** whose regex matches anywhere in the text — not the earliest
+match position across all regions. So when a keyword in one region can appear
+incidentally in another region's listings, the more specific region must come
+first.
+
+Concrete case: `flatbush` (South Brooklyn) also matches **"Flatbush Ave"**, a
+cross street named in listings all over Park Slope and Prospect Heights. With
+`central_brooklyn` ordered before `south_brooklyn`, those route correctly.
+Reversing the order silently mislabels them. There is a routing test for this —
+re-run it after any change to `REGIONS`.
+
+Related whole-word gotchas already handled by `_hood_regex`: `les` must not match
+"stainless"/"wireless", `lic` must not match "police". Add new short aliases with
+care. Unfixable by regex: `murray hill` matches **Murray Hill, Queens** too.
