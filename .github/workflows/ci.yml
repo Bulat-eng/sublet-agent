@@ -1,0 +1,77 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    # The hunt workflow commits state.db to main every ~15 min. Without this
+    # ignore, each of those bot commits would trigger a full CI run (~96/day)
+    # that could not possibly fail differently from the last one.
+    paths-ignore:
+      - "state.db"
+  workflow_dispatch:
+
+# A new push to a PR makes the in-flight run obsolete — drop it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Catches syntax errors and bad imports anywhere in the pipeline before
+      # they reach main — where they would silently kill the scheduled hunt.
+      - name: Import every module
+        run: |
+          python - <<'PY'
+          import config, filter, notifier, models, db, main
+          from sources import craigslist, listings_project, spareroom, reddit, ohana
+          print("all modules import OK")
+          PY
+
+      # Region routing is load-bearing: filter._assign_region returns the FIRST
+      # region that matches, so REGIONS order decides where listings land.
+      - name: Region routing tests
+        run: python test_regions.py
+
+      - name: Config integrity
+        run: |
+          python - <<'PY'
+          import config
+
+          keywords = [h for r in config.REGIONS.values() for h in r["neighborhoods"]]
+          dupes = {k for k in keywords if keywords.count(k) > 1}
+          assert not dupes, f"keyword(s) in more than one region: {sorted(dupes)}"
+
+          for key, region in config.REGIONS.items():
+              assert region["neighborhoods"], f"region {key!r} has no neighborhoods"
+              for field in ("label", "emoji"):
+                  assert region.get(field), f"region {key!r} is missing {field!r}"
+
+          # Every keyword is lowercased — _hood_regex compiles with IGNORECASE,
+          # but filter.py lowercases matches, so mixed case here is a mistake.
+          bad_case = [k for k in keywords if k != k.lower()]
+          assert not bad_case, f"keywords must be lowercase: {bad_case}"
+
+          # SpareRoom area paths look like "<borough>/<area>".
+          for area in config.SPAREROOM_AREAS:
+              assert area.count("/") == 1 and " " not in area, f"bad SpareRoom path: {area!r}"
+
+          print(f"config OK — {len(config.REGIONS)} regions, {len(keywords)} keywords, "
+                f"{len(config.SPAREROOM_AREAS)} SpareRoom areas")
+          PY
