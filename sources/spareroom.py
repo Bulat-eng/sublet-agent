@@ -63,8 +63,68 @@ def _parse_price(text: str) -> int | None:
     return amount
 
 
+# Bare borough/city labels — useless as a neighborhood, and setting one would
+# stop filter.py from deriving a specific hood from the matched keyword.
+_GENERIC_HOODS = {
+    "brooklyn", "manhattan", "new york", "new york city", "nyc",
+    "queens", "bronx", "staten island",
+}
+
+
+def _parse_from_data_attrs(card, listing_id: str) -> Listing | None:
+    """Parse a listing tile from its data-listing-* attributes.
+
+    Both the SEO area pages and the search-results pages render tiles as
+    <li class="listing-result"> carrying data-listing-id / -title / -neighbourhood
+    / -ad-rate-normalised. Those are far steadier than scraping rendered text —
+    and the visible anchor differs between the two page types (a fad_click.pl
+    tracking redirect on SEO pages, room_for_rent.pl on search pages), so the
+    permalink is rebuilt from the id instead of read off the tile.
+    """
+    card_text = card.get_text(" ", strip=True)
+    if re.search(r"deposit taken|let agreed|no longer available", card_text, re.IGNORECASE):
+        return None
+
+    title = (card.get("data-listing-title") or "SpareRoom NYC").strip()[:160]
+    url = f"{BASE}/roommate/room_for_rent.pl?flatshare_id={listing_id}"
+
+    rate = (card.get("data-listing-ad-rate-normalised")
+            or card.get("data-listing-ad-headline-rate") or "")
+    period = (card.get("data-listing-ad-rate-normalised-period")
+              or card.get("data-listing-ad-headline-rate-period") or "")
+    price = _parse_price(f"{rate} {period}".strip()) if rate else _parse_price(card_text)
+
+    # SpareRoom writes some hyphenated names spaced out ("Bedford - Stuyvesant");
+    # collapse so the config keyword ("bedford-stuyvesant") matches.
+    hood = re.sub(r"\s+-\s+", "-", (card.get("data-listing-neighbourhood") or "").strip())
+    specific = hood and hood.lower() not in _GENERIC_HOODS
+
+    text_low = card_text.lower()
+    furnished = True if "furnished" in text_low else (False if "unfurnished" in text_low else None)
+
+    # Prepend the hood so filter.py can match on it even when it appears nowhere
+    # in the title or the tile's visible text.
+    snippet = f"{hood}. {card_text}"[:300] if specific else card_text[:300]
+
+    return Listing(
+        id=f"sr_{listing_id}",
+        source="spareroom",
+        url=url,
+        title=title,
+        price=price,
+        neighborhood=hood if specific else None,
+        furnished=furnished,
+        body_snippet=snippet,
+    )
+
+
 def _parse_listing_card(card) -> Listing | None:
-    """Parse one listing tile from the search results page."""
+    """Parse one listing tile from a search-results or SEO area page."""
+    listing_id = card.get("data-listing-id")
+    if listing_id:
+        return _parse_from_data_attrs(card, str(listing_id))
+
+    # Fallback: older/plainer markup with no data attributes.
     a = card.select_one("a[href*='/flatshare/']") or card.find("a", href=True)
     if not a:
         return None
@@ -145,12 +205,73 @@ def _fetch_page(url: str, page: int = 1) -> list[Listing]:
         return []
 
 
+_SEARCH_SESSION: requests.Session | None = None
+
+
+def _search_session() -> requests.Session:
+    """Session for the search endpoint, warmed up so it carries SpareRoom's cookies."""
+    global _SEARCH_SESSION
+    if _SEARCH_SESSION is None:
+        sess = requests.Session()
+        sess.headers.update(_headers())
+        try:
+            sess.get(BASE, timeout=15)      # pick up cookies before searching
+        except Exception as exc:
+            logger.debug(f"SpareRoom session warm-up failed (continuing): {exc}")
+        _SEARCH_SESSION = sess
+    return _SEARCH_SESSION
+
+
+def _fetch_search(query: str) -> list[Listing]:
+    """Fetch listings via SpareRoom's search endpoint.
+
+    For neighborhoods with no SEO area page — Bed-Stuy above all — the
+    /rooms-for-rent/<area> URL 302s to a location-disambiguation FORM, not to
+    results, which is why simply following the redirect yields nothing. The
+    search endpoint does reach them, but only for names SpareRoom's US gazetteer
+    resolves unambiguously. See the notes on config.SPAREROOM_SEARCH_QUERIES.
+    """
+    try:
+        resp = _search_session().get(
+            f"{BASE}/roommate/search.pl",
+            params={"search": query, "flatshare_type": "offered", "action": "search"},
+            timeout=20,
+        )
+        if resp.status_code != 200:
+            logger.warning(f"SpareRoom search '{query}': HTTP {resp.status_code}")
+            return []
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        if "several possible matches" in soup.get_text(" ", strip=True):
+            logger.warning(
+                f"SpareRoom search '{query}' landed on the disambiguation page — 0 listings. "
+                "The gazetteer stopped resolving this name; re-check it against "
+                "config.SPAREROOM_SEARCH_QUERIES."
+            )
+            return []
+
+        out: list[Listing] = []
+        seen_urls: set[str] = set()
+        for card in soup.select("li.listing-result"):
+            listing = _parse_listing_card(card)
+            if listing and listing.url not in seen_urls:
+                seen_urls.add(listing.url)
+                out.append(listing)
+        logger.info(f"[SpareRoom search] '{query}' → {len(out)} listings")
+        return out
+
+    except Exception as exc:
+        logger.warning(f"SpareRoom search '{query}' failed: {exc}")
+        return []
+
+
 def fetch() -> list[Listing]:
-    """Scrape SpareRoom across the configured per-neighborhood area pages.
+    """Scrape SpareRoom across the configured area pages, then the search fallbacks.
 
     We hit one SEO area URL per target neighborhood (config.SPAREROOM_AREAS) so
     off-target areas (e.g. uptown Manhattan) are never returned — instead of
-    scraping all of NYC and discarding most of it downstream.
+    scraping all of NYC and discarding most of it downstream. Neighborhoods with
+    no SEO page are picked up afterwards via config.SPAREROOM_SEARCH_QUERIES.
     """
     all_listings: list[Listing] = []
     for area in config.SPAREROOM_AREAS:
@@ -162,6 +283,10 @@ def fetch() -> list[Listing]:
             all_listings.extend(page_results)
             time.sleep(random.uniform(2.0, 4.0))   # polite delay between requests
 
+    for query in getattr(config, "SPAREROOM_SEARCH_QUERIES", []):
+        all_listings.extend(_fetch_search(query))
+        time.sleep(random.uniform(2.0, 4.0))
+
     # Dedup by URL across areas/pages
     seen: set[str] = set()
     unique = []
@@ -170,7 +295,11 @@ def fetch() -> list[Listing]:
             seen.add(l.url)
             unique.append(l)
 
-    logger.info(f"[SpareRoom] {len(unique)} unique listings across {len(config.SPAREROOM_AREAS)} areas")
+    n_search = len(getattr(config, "SPAREROOM_SEARCH_QUERIES", []))
+    logger.info(
+        f"[SpareRoom] {len(unique)} unique listings across "
+        f"{len(config.SPAREROOM_AREAS)} area pages + {n_search} search queries"
+    )
     return unique
 
 
