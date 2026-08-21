@@ -2,6 +2,94 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.7.1] — 2026-08-21
+
+Closes the Bed-Stuy SpareRoom gap left open by 0.7.0, and fixes a URL bug found
+along the way.
+
+### Added
+- **`_fetch_search()` in `sources/spareroom.py`** — queries SpareRoom's search
+  endpoint for neighborhoods that have no SEO area page, driven by the new
+  `config.SPAREROOM_SEARCH_QUERIES`. **Bed-Stuy is now covered** (326 results
+  live); it was the highest-volume gap in the 0.7.0 expansion.
+- **`"bedford stuyvesant"`** (unhyphenated) as a neighborhood keyword — the form
+  SpareRoom actually uses in listing titles. Two regression tests added.
+
+### Fixed
+- **Mangled listing URLs on search-results pages.** The parser took the first
+  anchor in a tile, which on search pages is a URL-encoded tracking fragment, so
+  listings got unusable links and unstable ids. Tiles are now parsed from their
+  `data-listing-*` attributes and the permalink is rebuilt from the stable
+  listing id. Verified id-compatible with the 348 existing `sr_*` rows in
+  `state.db`, so no re-notification storm.
+- **Silent empty results.** A missing SEO page 302s to a disambiguation *form*
+  that still returns HTTP 200, so the old `status_code == 200` check treated "no
+  such place" as "no listings". `_fetch_search()` now detects that page and logs
+  a warning naming the config key to re-check.
+
+### Notes
+- Only Bed-Stuy proved recoverable. South Slope, Turtle Bay, Midtown South,
+  NoMad, Rose Hill, Hudson Square, World Trade Center, Herald Square, Peter
+  Cooper Village and Cooperative Village have no working search name and remain
+  uncovered by SpareRoom (still reachable via Craigslist / Reddit / Ohana /
+  Listings Project).
+- **Do not add a bare place name without checking where it resolves** — bare
+  `"Seaport"` returns Redwood City, CALIFORNIA listings.
+- The Bed-Stuy search also returns neighbors (Bushwick, Ocean Hill, Crown
+  Heights). The neighborhood filter handles them: Bushwick and Ocean Hill are
+  dropped, Crown Heights routes to South Brooklyn.
+
+## [0.7.0] — 2026-08-21
+
+Coverage release: the search area roughly doubles (30 → 66 neighborhoods) and the
+region map is re-cut. Driven by four neighborhood maps the user supplied, then
+trimmed by hand over several passes.
+
+### Added
+- **~36 new neighborhoods**, taking the allow-list from 30 areas to **66**
+  (80 keywords including aliases).
+- **Three Manhattan regions replace the single `manhattan` region**, split into
+  north-to-south bands: `midtown` (🟧, ~34th–59th), `midtown_to_fidi` (🟦, the
+  band between them), and `fidi` (🟥, the southern tip). Region keys are looked
+  up dynamically in `notifier.py`, so the old key simply stops being emitted.
+- **Williamsburg sub-area keywords** in North Brooklyn — `east williamsburg`,
+  `north/northside`, `south/southside`, `industrial`, and **`los sures`**. These
+  mostly improve the *label* in the digest rather than what's matched, since
+  `williamsburg` already catches them; `los sures` is the exception, containing
+  no "Williamsburg" at all.
+- **Bed-Stuy alias set** (`bedford-stuyvesant`, `bed-stuy`, `bed stuy`, `bedstuy`).
+- 17 new SpareRoom area paths and 5 new Craigslist search groups.
+
+### Changed
+- **Brooklyn re-cut.** Central Brooklyn absorbed the old South Brooklyn
+  brownstone belt (Downtown Brooklyn, DUMBO, Park Slope, Carroll Gardens et al.)
+  plus Bed-Stuy and Prospect Heights. South Brooklyn was redefined as the true
+  southern band: Windsor Terrace, Greenwood Heights, Sunset Park, Prospect
+  Lefferts Gardens, Crown Heights, Flatbush, Ditmas Park, Prospect Park South.
+- **Region order is now load-bearing.** `_assign_region` returns the first
+  *region* that matches, so `central_brooklyn` is deliberately ordered before
+  `south_brooklyn`: a Park Slope listing naming "Flatbush Ave" as a cross street
+  routes to Central rather than being mislabelled South. Verified by test.
+- `notifier.py` test digest (`--test`) now covers all six regions.
+
+### Removed
+- **Bushwick** — dropped from North Brooklyn (region keyword, SpareRoom path, and
+  its Craigslist search group). Note that `east williamsburg` partly reopens the
+  Bushwick-border strip, since that inventory routinely markets itself that way.
+- **Red Hook** — considered during planning, never added.
+- **Queens from `OHANA_CITIES`** — a leftover from the v0.3.0 region removal
+  (2026-07-11). Queens listings were fetched from the Bubble API only to be
+  discarded by the neighborhood filter, wasting budget against the 600-listing cap.
+
+### Notes
+- `murray hill` also matches **Murray Hill, Queens** (Flushing). Whole-word
+  matching cannot distinguish the two; flagged in a code comment.
+- Manhattan regions are checked before Brooklyn, so a Sunset Park listing that
+  says "Brooklyn Chinatown" lands in `midtown_to_fidi`. Cosmetic only — region
+  never affects whether a listing is kept.
+- `MEDIANS` still covers only the original 13 neighborhoods, so the
+  "% below median" enrichment is silently skipped for all newly added areas.
+
 ## [0.6.0] — 2026-07-24
 
 Preferences release: the user lowered their budget and decided against living in
