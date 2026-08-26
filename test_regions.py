@@ -23,6 +23,8 @@ CASES = [
     # ── Removed areas must NOT match ──
     ("Bushwick 1BR near Jefferson St", None, "Bushwick removed 2026-08-21"),
     ("Red Hook waterfront studio", None, "Red Hook never added"),
+    ("Sunset Park 1BR near the D train", None, "Sunset Park removed 2026-08-26"),
+    ("Sunny room, 5th Ave Sunset Park, Brooklyn", None, "same — removed 2026-08-26"),
 
     # ── ORDER-DEPENDENT: 'Flatbush Ave' is a cross street, not the neighborhood ──
     ("Park Slope 1BR steps from Flatbush Ave", "central_brooklyn",
