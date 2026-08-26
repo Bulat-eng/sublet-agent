@@ -65,9 +65,10 @@ REGIONS = {
             "alphabet city", "noho", "nolita", "little italy", "soho",
             "hudson square", "bowery",
             "lower east side", "les", "cooperative village",
-            # NOTE: Manhattan regions are checked before Brooklyn, so a Sunset
-            # Park listing that says "Brooklyn Chinatown" lands here. Rare, and
-            # cosmetic only (region never affects whether a listing is kept).
+            # NOTE: "chinatown" also matches Sunset Park listings marketed as
+            # "Brooklyn Chinatown". Sunset Park was dropped 2026-08-26, but this
+            # keyword still lets those through the hard filter, labelled
+            # Manhattan. See HANDOFF open items.
             "chinatown", "two bridges",
         ],
     },
@@ -117,7 +118,7 @@ REGIONS = {
         "label": "South Brooklyn",
         "emoji": "🟪",
         "neighborhoods": [
-            "windsor terrace", "greenwood heights", "sunset park",
+            "windsor terrace", "greenwood heights",
             "prospect lefferts gardens", "prospect-lefferts gardens",
             "crown heights", "prospect park south", "ditmas park",
             # Kept from the 2026-07-14 addition: a $1,750 rent-stabilized
@@ -152,7 +153,8 @@ CL_SEARCH_GROUPS = {
         "prospect heights crown heights bed stuy",
         # South Brooklyn
         "flatbush ditmas park prospect lefferts gardens",
-        "sunset park windsor terrace greenwood heights",
+        # "sunset park" dropped 2026-08-26 (user request)
+        "windsor terrace greenwood heights",
     ],
 }
 
@@ -201,7 +203,8 @@ SPAREROOM_AREAS = [
     "brooklyn/fort_greene", "brooklyn/clinton_hill", "brooklyn/gowanus",
     "brooklyn/park_slope", "brooklyn/prospect_heights",
     # South Brooklyn
-    "brooklyn/crown_heights", "brooklyn/sunset_park", "brooklyn/windsor_terrace",
+    # "brooklyn/sunset_park" dropped 2026-08-26 (user request)
+    "brooklyn/crown_heights", "brooklyn/windsor_terrace",
     "brooklyn/greenwood_heights",
 ]
 

@@ -2,6 +2,25 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.7.2] — 2026-08-26
+
+### Removed
+- **Sunset Park**, at the user's request. Dropped from three places in
+  `config.py`: the `south_brooklyn` `REGIONS` keyword list (the hard area
+  filter), the `"sunset park windsor terrace greenwood heights"` Craigslist
+  search group (now `"windsor terrace greenwood heights"`), and the
+  `brooklyn/sunset_park` SpareRoom area path. 66 → 65 neighborhoods, 42 → 41
+  SpareRoom paths.
+- Two regression tests added to `test_regions.py` asserting Sunset Park text now
+  routes to `None` (32/32 passing), matching the existing Bushwick/Red Hook
+  cases.
+
+### Notes
+- **Known leak:** `"chinatown"` remains a `midtown_to_fidi` keyword for Manhattan
+  Chinatown, so a Sunset Park listing marketed as "Brooklyn Chinatown" still
+  clears the area filter. Tracked as HANDOFF open item #12.
+- `MEDIANS` never covered Sunset Park, so nothing to remove there.
+
 ## [0.7.1] — 2026-08-21
 
 Closes the Bed-Stuy SpareRoom gap left open by 0.7.0, and fixes a URL bug found

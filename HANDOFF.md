@@ -79,7 +79,7 @@ value back**, so if the app password is ever lost it must be regenerated at
 - **Sublet duration:** 1–12 months (soft tag if outside)
 - **Move-in window:** **2026-06-15 → 2026-09-30** (soft flag if outside)
 - **Furnished:** flagged, not filtered
-- **Neighborhoods:** **66 areas across 6 regions** (was 30 / 4), each a labelled section in the digest:
+- **Neighborhoods:** **65 areas across 6 regions** (was 30 / 4), each a labelled section in the digest:
   | Region | Emoji | Covers |
   |---|---|---|
   | `midtown` | 🟧 | ~34th–59th: Theater District, Hudson Yards, Garment District, Koreatown, Herald Sq, Midtown East/South, Sutton Place, Turtle Bay, Tudor City, Murray Hill |
@@ -87,11 +87,11 @@ value back**, so if the app password is ever lost it must be regenerated at
   | `fidi` | 🟥 | Financial District, Battery Park City, WTC, Civic Center, Seaport, Tribeca |
   | `north_brooklyn` | 🟩 | Greenpoint, Williamsburg (+ east/north/south/side variants, "los sures") |
   | `central_brooklyn` | 🟨 | Downtown BK, DUMBO, Brooklyn Heights, Vinegar Hill, Boerum/Cobble Hill, Carroll Gardens, Columbia St Waterfront, Fort Greene, Clinton Hill, Gowanus, Park Slope, South Slope, Prospect Heights, Bed-Stuy |
-  | `south_brooklyn` | 🟪 | Windsor Terrace, Greenwood Heights, Sunset Park, Prospect Lefferts Gardens, Crown Heights, Flatbush, Ditmas Park, Prospect Park South |
+  | `south_brooklyn` | 🟪 | Windsor Terrace, Greenwood Heights, Prospect Lefferts Gardens, Crown Heights, Flatbush, Ditmas Park, Prospect Park South |
 
   **`REGIONS` dict order is load-bearing** — `filter._assign_region` returns the *first region* that matches, so `central_brooklyn` MUST precede `south_brooklyn` (a Park Slope listing naming "Flatbush Ave" would otherwise be mislabelled South). Covered by `test_regions.py`.
-  (Queens removed 2026-07-11; New Jersey 2026-07-24; **Bushwick 2026-08-21**. Hell's Kitchen deliberately excluded.)
-- **SpareRoom:** **42** neighborhood paths in `SPAREROOM_AREAS`, plus `SPAREROOM_SEARCH_QUERIES` for areas with no SEO page (currently just `"Bedford Stuyvesant"`).
+  (Queens removed 2026-07-11; New Jersey 2026-07-24; Bushwick 2026-08-21; **Sunset Park 2026-08-26**. Hell's Kitchen deliberately excluded.)
+- **SpareRoom:** **41** neighborhood paths in `SPAREROOM_AREAS`, plus `SPAREROOM_SEARCH_QUERIES` for areas with no SEO page (currently just `"Bedford Stuyvesant"`).
 - **⚠️ `MEDIANS` still covers only the original 13 neighborhoods**, so the "% vs median" line in the digest is silently skipped for all 36 newly-added areas — including Bed-Stuy and Crown Heights, the two the fall-hunt plan actually targets.
 
 ---
@@ -307,8 +307,15 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     2026-08-21:** the ordering that matters most is now deliberate and test-covered —
     `central_brooklyn` precedes `south_brooklyn` so "Flatbush Ave" cross-street mentions
     route correctly (`test_regions.py`). The general cross-borough case remains: Manhattan
-    regions are checked first, so a Sunset Park listing saying "Brooklyn Chinatown" lands in
+    regions are checked first, so a listing saying "Brooklyn Chinatown" lands in
     `midtown_to_fidi`.
+12. **⚠️ "Brooklyn Chinatown" leaks removed Sunset Park listings (opened 2026-08-26).** Sunset
+    Park was dropped from `REGIONS` on 2026-08-26, but `"chinatown"` is still a
+    `midtown_to_fidi` keyword (for Manhattan Chinatown, which IS wanted). A Sunset Park
+    listing marketed as "Brooklyn Chinatown" therefore still passes the hard area filter and
+    arrives in the digest labelled Manhattan. No longer cosmetic — it admits listings the
+    user asked to exclude. Fix would be a negative match on `"brooklyn chinatown"` in
+    `filter._assign_region`, ahead of the region scan. **Not implemented — ask first.**
 
 ---
 
