@@ -2,6 +2,40 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.8.0] — 2026-09-25
+
+### Added
+- **Two-tier rent cap.** New `config.CHEAPER_AREA_MAX_RENT` (**$1,650**) applies
+  to the neighborhoods in the new `config.CHEAPER_AREAS` list — Bed-Stuy (all
+  five spellings), Crown Heights, Flatbush, Prospect Lefferts Gardens and
+  Greenwood Heights. Everywhere else keeps `MAX_RENT` (**$1,800**), which stays
+  the server-side ceiling for Craigslist and Ohana so nothing is lost at fetch.
+- 12 rent-cap regression tests in `test_regions.py`, run through the full
+  `filter_listings()` pipeline (46/46 passing), and two CI config-integrity
+  checks: every `CHEAPER_AREAS` entry must be a real `REGIONS` keyword, and the
+  lower cap must not exceed `MAX_RENT`.
+
+### Changed
+- `filter_listings()` now matches the area **before** the budget check, since the
+  cap depends on the matched neighborhood. Side effect in the run log: an
+  out-of-area listing that is also over budget now counts as "wrong area".
+- The digest footer and the run-start log show both caps.
+
+### Removed
+- **Ditmas Park, Prospect Park South and Windsor Terrace**, at the user's
+  request. Dropped from `REGIONS`; the Craigslist groups are now
+  `"flatbush prospect lefferts gardens"` and `"greenwood heights"`; the
+  `brooklyn/windsor_terrace` SpareRoom path is gone. 65 → 62 neighborhoods,
+  41 → 40 SpareRoom paths.
+
+### Notes
+- **Known leak, accepted:** Ditmas Park and Prospect Park South sit inside
+  Flatbush, so a listing naming both (e.g. SpareRoom's "Flatbush - Ditmas Park")
+  still passes, labelled Flatbush and held to $1,650. Two of ~960 listings seen
+  to date. Test-covered so the behaviour is deliberate, not accidental.
+- The cap follows the keyword a listing is matched on, so a listing naming two
+  areas gets the cap of the one the region scan finds first.
+
 ## [0.7.2] — 2026-08-26
 
 ### Removed

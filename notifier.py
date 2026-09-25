@@ -211,7 +211,7 @@ def _build_html(listings: list[Listing]) -> str:
   <div style="text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid #E5E7EB;">
     <p style="color:#9CA3AF;font-size:12px;line-height:1.6;margin:0;">
       {html_escape(area_summary)}<br>
-      Max ${config.MAX_RENT:,}/mo · Studios–{config.MAX_BEDROOMS}BR · Sublets · Rooms · Direct rentals · Furnished flagged
+      Max ${config.MAX_RENT:,}/mo (${config.CHEAPER_AREA_MAX_RENT:,} in cheaper areas) · Studios–{config.MAX_BEDROOMS}BR · Sublets · Rooms · Direct rentals · Furnished flagged
     </p>
   </div>
 
@@ -290,8 +290,8 @@ def _send_test():
                 price=2100, neighborhood="Park Slope", bedrooms=1,
                 body_snippet="Test notification — Central Brooklyn section.", region="central_brooklyn"),
         Listing(id="test_sbk", source="craigslist_nyc",
-                url="https://example.com/sbk", title="TEST South BK: $1,700 sublet in Ditmas Park",
-                price=1700, neighborhood="Ditmas Park", bedrooms=1,
+                url="https://example.com/sbk", title="TEST South BK: $1,600 sublet in Flatbush",
+                price=1600, neighborhood="Flatbush", bedrooms=1,
                 body_snippet="Test notification — South Brooklyn section.", region="south_brooklyn"),
     ]
     ok = notify(samples)

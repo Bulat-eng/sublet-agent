@@ -8,6 +8,8 @@ import os
 # ─── Your preferences ─────────────────────────────────────────────────────────
 
 MAX_RENT = 1800                  # hard filter: reject listings above this monthly price
+                                 # (must stay the HIGHER cap — scrapers use it as the server-side ceiling)
+CHEAPER_AREA_MAX_RENT = 1650     # lower hard cap for the neighborhoods in CHEAPER_AREAS (below REGIONS)
 MIN_RENT = 700                   # quality filter: scam-suspicious below this
 MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 
@@ -38,6 +40,8 @@ LATEST_MOVE_IN   = "2026-09-30"  # ISO date; flag listings starting after
 # History: Queens removed 2026-07-11. New Jersey removed 2026-07-24.
 # Rebuilt 2026-08-21: Manhattan split into three bands (midtown / midtown_to_fidi
 # / fidi), Brooklyn re-cut, Bushwick and Red Hook dropped, ~36 areas added.
+# Sunset Park removed 2026-08-26. Ditmas Park, Prospect Park South and Windsor
+# Terrace removed 2026-09-25.
 
 REGIONS = {
     # ── Manhattan: ~34th to 59th ──
@@ -118,12 +122,15 @@ REGIONS = {
         "label": "South Brooklyn",
         "emoji": "🟪",
         "neighborhoods": [
-            "windsor terrace", "greenwood heights",
+            "greenwood heights",
             "prospect lefferts gardens", "prospect-lefferts gardens",
-            "crown heights", "prospect park south", "ditmas park",
+            "crown heights",
             # Kept from the 2026-07-14 addition: a $1,750 rent-stabilized
             # Flatbush studio was missed as out-of-scope. Also matches
             # "Flatbush Ave" — see the ordering note at the top of this block.
+            # NOTE: Ditmas Park and Prospect Park South (dropped 2026-09-25) sit
+            # inside Flatbush, so a listing naming both — e.g. SpareRoom's
+            # "Flatbush - Ditmas Park" — still gets through, labelled Flatbush.
             "flatbush",
         ],
     },
@@ -132,6 +139,18 @@ REGIONS = {
 # Derived: flat list of all neighborhood keywords (used by filter + scrapers)
 NEIGHBORHOOD_KEYWORDS = [
     hood for region in REGIONS.values() for hood in region["neighborhoods"]
+]
+
+# Neighborhoods held to CHEAPER_AREA_MAX_RENT instead of MAX_RENT. Entries are
+# REGIONS keywords, so list every spelling variant (see Bed-Stuy). The cap follows
+# the keyword a listing is matched on, so the region ORDER note above applies
+# here too: a Park Slope listing naming "Flatbush Ave" keeps the higher cap.
+CHEAPER_AREAS = [
+    # Central Brooklyn
+    "bedford-stuyvesant", "bedford stuyvesant", "bed-stuy", "bed stuy", "bedstuy",
+    # South Brooklyn (currently the whole region)
+    "greenwood heights", "prospect lefferts gardens", "prospect-lefferts gardens",
+    "crown heights", "flatbush",
 ]
 
 
@@ -151,10 +170,10 @@ CL_SEARCH_GROUPS = {
         "park slope cobble hill",
         "brooklyn heights fort greene clinton hill",
         "prospect heights crown heights bed stuy",
-        # South Brooklyn
-        "flatbush ditmas park prospect lefferts gardens",
+        # South Brooklyn ("ditmas park", "windsor terrace" dropped 2026-09-25)
+        "flatbush prospect lefferts gardens",
         # "sunset park" dropped 2026-08-26 (user request)
-        "windsor terrace greenwood heights",
+        "greenwood heights",
     ],
 }
 
@@ -204,8 +223,8 @@ SPAREROOM_AREAS = [
     "brooklyn/park_slope", "brooklyn/prospect_heights",
     # South Brooklyn
     # "brooklyn/sunset_park" dropped 2026-08-26 (user request)
-    "brooklyn/crown_heights", "brooklyn/windsor_terrace",
-    "brooklyn/greenwood_heights",
+    # "brooklyn/windsor_terrace" dropped 2026-09-25 (user request)
+    "brooklyn/crown_heights", "brooklyn/greenwood_heights",
 ]
 
 

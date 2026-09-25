@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). See CHANGELOG `[0.8.0]`; new open item #13 (Craigslist search strings may be under-fetching). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -74,12 +74,12 @@ value back**, so if the app password is ever lost it must be regenerated at
 
 ## Search criteria (all in `config.py`)
 
-- **Rent:** $700 – **$1,800**/mo (hard reject above; below $700 flagged scam-suspicious)
+- **Rent:** $700 – **$1,800**/mo, or **$1,650** in `CHEAPER_AREAS` (Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights) — hard reject above the area's cap; below $700 flagged scam-suspicious. The cap is picked by the matched neighborhood keyword, so the budget check runs *after* the area match. `MAX_RENT` must stay the higher cap: it's the server-side ceiling for Craigslist and Ohana.
 - **Max bedrooms:** 2 (studio / 1BR / 2BR)
 - **Sublet duration:** 1–12 months (soft tag if outside)
 - **Move-in window:** **2026-06-15 → 2026-09-30** (soft flag if outside)
 - **Furnished:** flagged, not filtered
-- **Neighborhoods:** **65 areas across 6 regions** (was 30 / 4), each a labelled section in the digest:
+- **Neighborhoods:** **62 areas across 6 regions** (was 30 / 4), each a labelled section in the digest:
   | Region | Emoji | Covers |
   |---|---|---|
   | `midtown` | 🟧 | ~34th–59th: Theater District, Hudson Yards, Garment District, Koreatown, Herald Sq, Midtown East/South, Sutton Place, Turtle Bay, Tudor City, Murray Hill |
@@ -87,11 +87,11 @@ value back**, so if the app password is ever lost it must be regenerated at
   | `fidi` | 🟥 | Financial District, Battery Park City, WTC, Civic Center, Seaport, Tribeca |
   | `north_brooklyn` | 🟩 | Greenpoint, Williamsburg (+ east/north/south/side variants, "los sures") |
   | `central_brooklyn` | 🟨 | Downtown BK, DUMBO, Brooklyn Heights, Vinegar Hill, Boerum/Cobble Hill, Carroll Gardens, Columbia St Waterfront, Fort Greene, Clinton Hill, Gowanus, Park Slope, South Slope, Prospect Heights, Bed-Stuy |
-  | `south_brooklyn` | 🟪 | Windsor Terrace, Greenwood Heights, Prospect Lefferts Gardens, Crown Heights, Flatbush, Ditmas Park, Prospect Park South |
+  | `south_brooklyn` | 🟪 | Greenwood Heights, Prospect Lefferts Gardens, Crown Heights, Flatbush |
 
   **`REGIONS` dict order is load-bearing** — `filter._assign_region` returns the *first region* that matches, so `central_brooklyn` MUST precede `south_brooklyn` (a Park Slope listing naming "Flatbush Ave" would otherwise be mislabelled South). Covered by `test_regions.py`.
-  (Queens removed 2026-07-11; New Jersey 2026-07-24; Bushwick 2026-08-21; **Sunset Park 2026-08-26**. Hell's Kitchen deliberately excluded.)
-- **SpareRoom:** **41** neighborhood paths in `SPAREROOM_AREAS`, plus `SPAREROOM_SEARCH_QUERIES` for areas with no SEO page (currently just `"Bedford Stuyvesant"`).
+  (Queens removed 2026-07-11; New Jersey 2026-07-24; Bushwick 2026-08-21; Sunset Park 2026-08-26; **Ditmas Park, Prospect Park South, Windsor Terrace 2026-09-25** — Ditmas Park listings that also say "Flatbush" still get through, by choice. Hell's Kitchen deliberately excluded.)
+- **SpareRoom:** **40** neighborhood paths in `SPAREROOM_AREAS`, plus `SPAREROOM_SEARCH_QUERIES` for areas with no SEO page (currently just `"Bedford Stuyvesant"`).
 - **⚠️ `MEDIANS` still covers only the original 13 neighborhoods**, so the "% vs median" line in the digest is silently skipped for all 36 newly-added areas — including Bed-Stuy and Crown Heights, the two the fall-hunt plan actually targets.
 
 ---
@@ -273,7 +273,7 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
    preserved in the 2026-08-20 section if it does.
 2. **Node 20 action deprecation — RESOLVED.** `hunt.yml` now pins `actions/checkout@v6.0.3` + `actions/setup-python@v6.2.0`.
 3. **First-run notification burst — RESOLVED (2026-07-30).** The anticipated big first digest went out and the system is now in **steady state**: dedup keeps each run small and per-source volume has settled (LP is now a ~20-listing weekly-Wednesday pulse — see "Last session (2026-07-30)"). No per-run cap was added (user wanted it uncapped) and none has proven necessary. Verified healthy in production 2026-07-30. _(Original note: v0.5.0 widened coverage to ~104 matches — LP 0→372, Ohana +342 — and the first scheduled run emailed that whole backlog at once, as expected/accepted.)_
-4. **SpareRoom area-URL dependency.** **42** hardcoded slugs in `SPAREROOM_AREAS`, all
+4. **SpareRoom area-URL dependency.** **40** hardcoded slugs in `SPAREROOM_AREAS`, all
    verified HTTP 200 on 2026-08-21. A renamed path does **not** 404 — it **302s to a
    disambiguation form that returns 200**, so it fails *silently*. `_fetch_search()` detects
    that page ("several possible matches") and logs a warning; the area-page path does not.
@@ -316,6 +316,15 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     arrives in the digest labelled Manhattan. No longer cosmetic — it admits listings the
     user asked to exclude. Fix would be a negative match on `"brooklyn chinatown"` in
     `filter._assign_region`, ahead of the region scan. **Not implemented — ask first.**
+13. **⚠️ Craigslist search strings may be under-fetching (spotted 2026-09-25, not fixed).**
+    Each `CL_SEARCH_GROUPS` string goes to Craigslist verbatim as `query=`, and Craigslist
+    appears to require *every* word to appear. Live counts (sublets + rooms, ≤ $1,800):
+    `"soho tribeca chelsea lower east side"` → **1**, but `"soho|tribeca|chelsea|lower east side"`
+    → **7** and bare `"chelsea"` alone → **5**; `"flatbush ditmas park prospect lefferts gardens"`
+    → 1 vs `"flatbush prospect lefferts gardens"` → 6. Not uniform, though:
+    `"prospect heights crown heights bed stuy"` returned 3 either way. Small samples, so
+    **confirm before changing** — the likely fix is joining each group's areas with `|`
+    (Craigslist's OR operator) in `CL_SEARCH_GROUPS`, or one query per area.
 
 ---
 
@@ -323,14 +332,14 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 
 | Task | How |
 |---|---|
-| Change budget / move-in / bedrooms | Edit constants at top of `config.py` |
-| Add/remove neighborhoods | Edit `REGIONS` in `config.py` (drives filtering + email section grouping) |
+| Change budget / move-in / bedrooms | Edit constants at top of `config.py`. Two caps: `MAX_RENT` (must stay the higher one) and `CHEAPER_AREA_MAX_RENT`, which applies to the keywords in `CHEAPER_AREAS` |
+| Add/remove neighborhoods | Edit `REGIONS` in `config.py` (drives filtering + email section grouping), **plus** `CL_SEARCH_GROUPS` and `SPAREROOM_AREAS`, and `CHEAPER_AREAS` if it's a cheaper-tier area (CI fails on a `CHEAPER_AREAS` entry that isn't in `REGIONS`) |
 | Add/remove SpareRoom areas | Edit `SPAREROOM_AREAS` — path format `borough/neighborhood`; verify the URL returns listings first |
 | Change Ohana scope | `OHANA_CITIES` (Bubble city labels; Manhattan = `"New York"`). The price ceiling is inherited from `MAX_RENT`. `OHANA_MAX_LISTINGS` caps the paginated total |
 | Test the changed sources | `python -m sources.listings_project` · `python -m sources.ohana` (both print a sample; no email/DB writes) |
 | Change per-source frequency | Edit `SOURCE_CADENCE_MINUTES` (Ohana 20m, Listings Project 6h) |
 | Tune Reddit seeker detection | `REDDIT_SEEKER_NOUNS` + the `_SEEKER_RE` regex in `sources/reddit.py` |
-| **Run the region tests (after ANY `REGIONS` edit)** | `.venv/bin/python test_regions.py` — 30 cases, no pytest needed |
+| **Run the region tests (after ANY `REGIONS` / `CHEAPER_AREAS` edit)** | `.venv/bin/python test_regions.py` — 46 cases (34 routing, 12 rent cap), no pytest needed |
 | Add a SpareRoom area | Add to `SPAREROOM_AREAS`; **verify it returns HTTP 200 first** — a bad path 302s to a form that still returns 200 |
 | Cover an area with no SpareRoom SEO page | Add the **bare gazetteer name** to `SPAREROOM_SEARCH_QUERIES`; confirm where it resolves (`"Seaport"` → California) |
 | Debug why a listing routed somewhere | `python -c "from filter import _assign_region; print(_assign_region('<card text>'))"` |

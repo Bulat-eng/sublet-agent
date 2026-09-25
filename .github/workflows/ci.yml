@@ -45,8 +45,9 @@ jobs:
           PY
 
       # Region routing is load-bearing: filter._assign_region returns the FIRST
-      # region that matches, so REGIONS order decides where listings land.
-      - name: Region routing tests
+      # region that matches, so REGIONS order decides where listings land — and,
+      # since 0.8.0, which rent cap they're held to.
+      - name: Region routing + rent cap tests
         run: python test_regions.py
 
       - name: Config integrity
@@ -71,6 +72,16 @@ jobs:
           # SpareRoom area paths look like "<borough>/<area>".
           for area in config.SPAREROOM_AREAS:
               assert area.count("/") == 1 and " " not in area, f"bad SpareRoom path: {area!r}"
+
+          # A CHEAPER_AREAS entry that isn't an exact REGIONS keyword never
+          # matches, so that area would silently keep the higher cap.
+          unknown = sorted(set(config.CHEAPER_AREAS) - set(keywords))
+          assert not unknown, f"CHEAPER_AREAS not in REGIONS: {unknown}"
+
+          # Scrapers fetch server-side up to MAX_RENT, so it must be the higher
+          # cap or listings between the two would never be fetched at all.
+          assert config.CHEAPER_AREA_MAX_RENT <= config.MAX_RENT, (
+              "CHEAPER_AREA_MAX_RENT must not exceed MAX_RENT")
 
           print(f"config OK — {len(config.REGIONS)} regions, {len(keywords)} keywords, "
                 f"{len(config.SPAREROOM_AREAS)} SpareRoom areas")
