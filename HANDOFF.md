@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). See CHANGELOG `[0.8.0]`; new open item #13 (Craigslist search strings may be under-fetching). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -96,7 +96,73 @@ value back**, so if the app password is ever lost it must be regenerated at
 
 ---
 
-## Last session (2026-08-21) — coverage expansion + CI
+## Last session (2026-09-25) — two-tier rent cap + 3 areas removed (`v0.8.0`)
+
+**What the user asked for:** drop Ditmas Park, Prospect Park South and Windsor Terrace, and
+cap rent at $1,800 in expensive areas but $1,650 in cheaper ones.
+**How it went:** plan shown first, one question asked (which areas count as "cheaper"), then
+built. PR #3 → CI green → **squash-merged by the user as `5d36094`** (auto mode can't merge —
+see §5). Rollback if ever needed: `git revert -m 1 5d36094 && git push origin main`.
+
+### 1. Two-tier rent cap
+- New `CHEAPER_AREA_MAX_RENT = 1650`, applied to the keywords in the new `CHEAPER_AREAS` list:
+  all five Bed-Stuy spellings, Crown Heights, Flatbush, both PLG spellings, Greenwood Heights.
+  Everything else stays at `MAX_RENT = 1800`.
+- The user chose this split ("South BK + Bed-Stuy") over "South BK only" and "all of Brooklyn".
+- **`MAX_RENT` must stay the higher cap** — it's the Craigslist `max_price` and the Ohana
+  server-side ceiling, so listings under a higher cheaper-tier cap would never be fetched.
+  CI asserts it.
+- `filter_listings()` now matches the area **before** the budget check, since the cap depends
+  on the matched keyword. Log side effect: an out-of-area listing that's also over budget now
+  counts as "wrong area", not "over budget".
+- The cap follows the keyword `_assign_region` returns, so **region order now affects price
+  too**: a Park Slope listing naming "Flatbush Ave" routes Central and keeps $1,800
+  (test-covered).
+
+### 2. Three areas removed
+Dropped from `REGIONS`, `CL_SEARCH_GROUPS` (now `"flatbush prospect lefferts gardens"` and
+`"greenwood heights"`) and `SPAREROOM_AREAS` (`brooklyn/windsor_terrace`): 65 → 62
+neighborhoods, 41 → 40 SpareRoom paths. The `notifier._send_test()` sample moved from Ditmas
+Park to Flatbush.
+**Accepted leak:** Ditmas Park and Prospect Park South sit inside Flatbush, so SpareRoom's
+"Flatbush - Ditmas Park" listings still pass, labelled Flatbush (and held to $1,650) — 2 of
+~960 listings seen. The user was told once while planning and didn't object; don't re-raise
+it. Test-covered, so the behaviour is deliberate.
+
+### 3. Tests + CI
+- `test_regions.py` is now **46 cases**: 34 routing + 12 rent-cap cases run through the full
+  `filter_listings()` (boundaries $1,650/$1,651 and $1,800/$1,801, each cheaper-area family,
+  the "Flatbush Ave" ordering case, no-price listings).
+- CI config integrity fails if a `CHEAPER_AREAS` entry isn't an exact `REGIONS` keyword (it
+  would silently keep the higher cap — negative-tested with a deliberate typo) or if
+  `CHEAPER_AREA_MAX_RENT > MAX_RENT`.
+
+### 4. Verified in production
+First hunt run on `5d36094` (run `36095510616`, 04:42Z): the log shows
+`Max rent : $1,800/mo ($1,650 in cheaper areas)`; both edited Craigslist groups ran (3+3 and
+1+0 results); `Filter: kept 98 / 266 (rejected: 19 over budget, 144 wrong area, 5 scam)`;
+0 new after dedup. **So no email went out — the new digest footer hasn't appeared in a real
+email yet.** Look for `Gmail SMTP: digest sent` on the first run with new listings.
+
+### 5. Workflow notes
+- **Merging is the user's step.** In auto mode `gh pr merge` is blocked by the permission
+  classifier ("Merge Without Review") — don't retry or work around it. Once CI is green, hand
+  the user `gh pr merge <N> --squash --delete-branch -R Bulat-eng/sublet-agent`.
+- **PR CI does fire on its own — sometimes late.** PR #3's `pull_request` run started 3 s
+  after the PR opened; PR #2's took ~4 min (it was merged before its run even started). A
+  manual `gh workflow run ci.yml --ref <branch>` sent early just runs CI twice, so give it a
+  few minutes first.
+- **No release tags on the public repo.** `v0.1.0`–`v0.6.0` exist only in the local clone
+  (from the pre-migration repo); v0.7.x and v0.8.0 are untagged, though "Cut a release" under
+  Common tasks still says to tag. Worth a decision with the user.
+- **Local clone:** on `main`, clean. Five stale local branches from the old repo remain
+  (`ci/bump-actions-node24`, `claude/task-manager-integration-plan-e4z97c`,
+  `feat/central-brooklyn-direct-rentals`, `feat/lower-budget-remove-nj`,
+  `multi-region-routing`) — ask before deleting.
+
+---
+
+## Previous session (2026-08-21) — coverage expansion + CI
 
 **What the user asked for:** add the neighborhoods shown in four maps they pasted, then trim.
 **How they wanted it done:** *plan first.* They pushed back twice on wasted effort — "Before
@@ -271,6 +337,9 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
    than never. No further action needed unless cadence regresses; the escalation ladder
    (delete/re-add `hunt.yml`, rename to `hunt2.yml`, external pinger, GitHub Support) is
    preserved in the 2026-08-20 section if it does.
+   **2026-09-25 data point:** `schedule` is down to **14 of the last 40 runs** (from 25), and
+   its newest firing was 01:52Z — ~3 h before the latest pinger run. Still firing, but less;
+   the pinger (item #10) carries the rest.
 2. **Node 20 action deprecation — RESOLVED.** `hunt.yml` now pins `actions/checkout@v6.0.3` + `actions/setup-python@v6.2.0`.
 3. **First-run notification burst — RESOLVED (2026-07-30).** The anticipated big first digest went out and the system is now in **steady state**: dedup keeps each run small and per-source volume has settled (LP is now a ~20-listing weekly-Wednesday pulse — see "Last session (2026-07-30)"). No per-run cap was added (user wanted it uncapped) and none has proven necessary. Verified healthy in production 2026-07-30. _(Original note: v0.5.0 widened coverage to ~104 matches — LP 0→372, Ohana +342 — and the first scheduled run emailed that whole backlog at once, as expected/accepted.)_
 4. **SpareRoom area-URL dependency.** **40** hardcoded slugs in `SPAREROOM_AREAS`, all
@@ -297,6 +366,8 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     this crutch has served its purpose. It is still running (~every 15 min) and currently
     *supplements* the throttled cron, which is why observed cadence looks tighter than
     `schedule` alone. **Decide with the user: remove it, or keep it for tighter timing.**
+    As of 2026-09-25 it started **26 of the last 40 runs** (item #1), so removing it would
+    cut run frequency sharply — say so when raising it.
     Remove with `launchctl bootout gui/$(id -u)/com.bulat.sublet-hunt-ping`, then delete
     `~/.local/bin/sublet-hunt-ping.sh` and `~/Library/LaunchAgents/com.bulat.sublet-hunt-ping.plist`.
     Files: script + LaunchAgent (`StartInterval 900`), no token stored (keychain `gh` login),
@@ -325,6 +396,11 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     `"prospect heights crown heights bed stuy"` returned 3 either way. Small samples, so
     **confirm before changing** — the likely fix is joining each group's areas with `|`
     (Craigslist's OR operator) in `CL_SEARCH_GROUPS`, or one query per area.
+14. **🟡 Move-in window ends 2026-09-30.** `LATEST_MOVE_IN = "2026-09-30"` in `config.py`.
+    After that, every listing with a parsed move-in date gets a `late-move-in:<date>` tag, and
+    tags render as pills in the digest — so most dated listings will carry one. Soft tag only:
+    nothing is dropped. Mentioned to the user once on 2026-09-25, no decision yet — the new
+    window is their call; raise it once when relevant, don't nag.
 
 ---
 
@@ -343,7 +419,7 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 | Add a SpareRoom area | Add to `SPAREROOM_AREAS`; **verify it returns HTTP 200 first** — a bad path 302s to a form that still returns 200 |
 | Cover an area with no SpareRoom SEO page | Add the **bare gazetteer name** to `SPAREROOM_SEARCH_QUERIES`; confirm where it resolves (`"Seaport"` → California) |
 | Debug why a listing routed somewhere | `python -c "from filter import _assign_region; print(_assign_region('<card text>'))"` |
-| Deploy a change | PR into `main` (agent runs from `main` HEAD); cron picks it up next tick |
+| Deploy a change | PR into `main` (agent runs from `main` HEAD); **the user merges** (auto mode can't — hand them `gh pr merge <N> --squash --delete-branch -R Bulat-eng/sublet-agent`); the next tick picks it up |
 | Roll back a bad release | `git revert -m 1 <merge-sha> && git push origin main` |
 | Trigger a run manually | `gh workflow run hunt.yml -R Bulat-eng/sublet-agent` (or Actions tab → Run workflow) |
 | Cut a release | Update `CHANGELOG.md`, `git tag vX.Y.Z && git push origin vX.Y.Z` (see README) |
