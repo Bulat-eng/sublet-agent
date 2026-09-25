@@ -47,6 +47,7 @@ def _hood_regex(hoods: list[str]) -> re.Pattern:
 # Precompiled matchers (built once at import) — per-region for routing, combined for membership
 _REGION_RES = {key: _hood_regex(r["neighborhoods"]) for key, r in config.REGIONS.items()}
 _NEIGHBORHOOD_RE = _hood_regex(config.NEIGHBORHOOD_KEYWORDS)
+_CHEAPER_AREAS = frozenset(config.CHEAPER_AREAS)
 
 
 def _matches_neighborhood(text: str) -> str | None:
@@ -62,6 +63,11 @@ def _assign_region(text: str) -> tuple[str | None, str | None]:
         if m:
             return region_key, m.group(0).lower()
     return None, None
+
+
+def _rent_cap(hood: str) -> int:
+    """Monthly rent cap for a matched neighborhood keyword (lowercase, as _assign_region returns it)."""
+    return config.CHEAPER_AREA_MAX_RENT if hood in _CHEAPER_AREAS else config.MAX_RENT
 
 
 def _is_scam(listing: Listing) -> bool:
@@ -108,17 +114,18 @@ def filter_listings(listings: list[Listing]) -> list[Listing]:
     rejected = {"over_budget": 0, "wrong_area": 0, "scam": 0}
 
     for l in listings:
-        # HARD: over budget
-        if l.price is not None and l.price > config.MAX_RENT:
-            rejected["over_budget"] += 1
-            continue
-
         # HARD: not in target neighborhoods + assign region for routing
         full_text = " ".join(filter(None, [l.title, l.body_snippet, l.neighborhood or ""]))
         region_key, hood = _assign_region(full_text)
         if hood is None:
             rejected["wrong_area"] += 1
             continue
+
+        # HARD: over budget — after the area match, because the cap depends on it
+        if l.price is not None and l.price > _rent_cap(hood):
+            rejected["over_budget"] += 1
+            continue
+
         if not l.neighborhood:
             l.neighborhood = hood.title()
         l.region = region_key
