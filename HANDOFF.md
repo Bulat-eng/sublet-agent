@@ -396,7 +396,7 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     `"prospect heights crown heights bed stuy"` returned 3 either way. Small samples, so
     **confirm before changing** — the likely fix is joining each group's areas with `|`
     (Craigslist's OR operator) in `CL_SEARCH_GROUPS`, or one query per area.
-14. **🟡 Move-in window ends 2026-09-30.** `LATEST_MOVE_IN = "2026-09-30"` in `config.py`.
+14. **✅ Move-in window — RESOLVED 2026-10-07 (v0.8.1).** Both bounds set to `None` (no flag); he is subletting open-endedly until the right place turns up.
     After that, every listing with a parsed move-in date gets a `late-move-in:<date>` tag, and
     tags render as pills in the digest — so most dated listings will carry one. Soft tag only:
     nothing is dropped. Mentioned to the user once on 2026-09-25, no decision yet — the new

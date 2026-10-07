@@ -9,7 +9,7 @@ import os
 
 MAX_RENT = 1800                  # hard filter: reject listings above this monthly price
                                  # (must stay the HIGHER cap — scrapers use it as the server-side ceiling)
-CHEAPER_AREA_MAX_RENT = 1650     # lower hard cap for the neighborhoods in CHEAPER_AREAS (below REGIONS)
+CHEAPER_AREA_MAX_RENT = 1550     # lower hard cap for the neighborhoods in CHEAPER_AREAS (below REGIONS)
 MIN_RENT = 700                   # quality filter: scam-suspicious below this
 MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 
@@ -17,8 +17,10 @@ MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 SUBLET_DURATION_MIN_MONTHS = 1
 SUBLET_DURATION_MAX_MONTHS = 12
 REQUIRE_FURNISHED = False        # flag, not filter (still get unfurnished listings)
-EARLIEST_MOVE_IN = "2026-06-15"  # ISO date; flag listings starting before
-LATEST_MOVE_IN   = "2026-09-30"  # ISO date; flag listings starting after
+# Move-in window: ISO date, or None for no bound. Both None since 2026-10-07 —
+# he's subletting open-endedly until the right place turns up, so no date flags.
+EARLIEST_MOVE_IN = None          # flag listings starting before this
+LATEST_MOVE_IN   = None          # flag listings starting after this
 
 
 # ─── Regions ──────────────────────────────────────────────────────────────────

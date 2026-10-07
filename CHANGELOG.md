@@ -2,6 +2,16 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.8.1] — 2026-10-07
+
+### Changed
+- **Cheaper-area cap lowered: `CHEAPER_AREA_MAX_RENT` $1,650 → $1,550** (Bed-Stuy,
+  Crown Heights, Flatbush, PLG, Greenwood Heights). `MAX_RENT` stays $1,800.
+- **Move-in window opened.** `EARLIEST_MOVE_IN` / `LATEST_MOVE_IN` now accept
+  `None` (no bound) and both are `None`, so listings are no longer tagged
+  "filter not passed — late-move-in" after the old 2026-09-30 end date. Set
+  either back to an ISO date to restore the flag.
+
 ## [0.8.0] — 2026-09-25
 
 ### Added

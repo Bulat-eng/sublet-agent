@@ -127,7 +127,7 @@ def main():
     logger.info("🏙️  NYC Sublet Agent starting")
     logger.info(f"   Sources       : {', '.join(config.ENABLED_SOURCES)}")
     logger.info(f"   Max rent      : ${config.MAX_RENT:,}/mo (${config.CHEAPER_AREA_MAX_RENT:,} in cheaper areas)")
-    logger.info(f"   Move-in window: {config.EARLIEST_MOVE_IN} → {config.LATEST_MOVE_IN}")
+    logger.info(f"   Move-in window: {config.EARLIEST_MOVE_IN or "any"} → {config.LATEST_MOVE_IN or "any"}")
     logger.info(f"   Facebook opt-in: {config.ENABLE_FACEBOOK}")
     logger.info("")
     run()

@@ -79,14 +79,15 @@ CASES = [
 
 # (text, price, expected_kept, why) — run through the full filter_listings()
 # pipeline, so these also guard that the budget check runs AFTER the area match.
-# Caps as of 2026-09-25: $1,650 in config.CHEAPER_AREAS, $1,800 everywhere else.
+# Caps as of 2026-10-07: $1,550 in config.CHEAPER_AREAS, $1,800 everywhere else.
 CAP_CASES = [
-    # ── Cheaper areas: $1,650 ──
-    ("Bed-Stuy brownstone room, sunny and quiet", 1650, True, "exactly at the lower cap"),
-    ("Bed-Stuy brownstone room, sunny and quiet", 1651, False, "$1 over the lower cap"),
+    # ── Cheaper areas: $1,550 ──
+    ("Bed-Stuy brownstone room, sunny and quiet", 1550, True, "exactly at the lower cap"),
+    ("Bed-Stuy brownstone room, sunny and quiet", 1551, False, "$1 over the lower cap"),
     ("Bedford Stuyvesant room, 2 blocks to the A", 1700, False,
      "every Bed-Stuy spelling must carry the lower cap"),
-    ("Crown Heights sublet near the 2/3 train", 1700, False, ""),
+    ("Crown Heights sublet near the 2/3 train", 1600, False,
+     "passed under the old $1,650 cap, must not now"),
     ("Greenwood Heights room by the park", 1700, False, ""),
     ("Room in Flatbush - Ditmas Park, near the Q", 1700, False,
      "the Ditmas Park leak lands on Flatbush, so it still gets the lower cap"),
@@ -97,7 +98,7 @@ CAP_CASES = [
     ("Clinton Hill room with big windows", 1750, True,
      "Central BK, but not a cheaper area — Bed-Stuy is the only one there"),
     ("Park Slope 1BR steps from Flatbush Ave", 1750, True,
-     "ORDER: routes Central, so naming Flatbush Ave must not drag it to $1,650"),
+     "ORDER: routes Central, so naming Flatbush Ave must not drag it to the lower cap"),
     ("East Village studio, 3 month sublet", 1800, True, ""),
 
     # ── Unknown price is never rejected on budget ──
