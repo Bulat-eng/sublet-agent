@@ -31,6 +31,12 @@ CASES = [
     ("Prospect Park South 2BR", None,
      "removed 2026-09-25 — and must not be swallowed by 'prospect heights'/'park slope'"),
     ("Windsor Terrace 1BR near the F", None, "Windsor Terrace removed 2026-09-25"),
+    ("Bed-Stuy brownstone room", None, "Bed-Stuy removed 2026-10-07"),
+    ("BedStuy room available", None, "same — no-space alias"),
+    ("#1183 Rooms in 2Br/1Ba in Bedford Stuyvesant", None,
+     "same — SpareRoom's unhyphenated form"),
+    ("Bedford-Stuyvesant share", None, "same — hyphenated form"),
+    ("Bed Stuy sublet near the A/C", None, "same — spaced form"),
 
     # ── ORDER-DEPENDENT: 'Flatbush Ave' is a cross street, not the neighborhood ──
     ("Park Slope 1BR steps from Flatbush Ave", "central_brooklyn",
@@ -46,12 +52,8 @@ CASES = [
     ("Crown Heights sublet", "south_brooklyn", ""),
 
     # ── Central Brooklyn ──
-    ("Bed-Stuy brownstone room", "central_brooklyn", ""),
-    ("BedStuy room available", "central_brooklyn", "no-space alias"),
-    ("#1183 Rooms in 2Br/1Ba in Bedford Stuyvesant", "central_brooklyn",
-     "SpareRoom titles use the unhyphenated form — added 2026-08-21"),
-    ("Bedford-Stuyvesant share", "central_brooklyn",
-     "scraper normalises SpareRoom's spaced 'Bedford - Stuyvesant' to this"),
+    ("Clinton Hill room, Bed-Stuy border", "central_brooklyn",
+     "KNOWN LEAK, by choice: a neighbor still in scope keeps it (see config note)"),
     ("Brooklyn Heights promenade studio", "central_brooklyn", ""),
     ("South Slope 1BR", "central_brooklyn",
      "'park slope' does NOT match 'South Slope' — needs its own keyword"),
@@ -82,10 +84,10 @@ CASES = [
 # Caps as of 2026-10-07: $1,550 in config.CHEAPER_AREAS, $1,800 everywhere else.
 CAP_CASES = [
     # ── Cheaper areas: $1,550 ──
-    ("Bed-Stuy brownstone room, sunny and quiet", 1550, True, "exactly at the lower cap"),
-    ("Bed-Stuy brownstone room, sunny and quiet", 1551, False, "$1 over the lower cap"),
-    ("Bedford Stuyvesant room, 2 blocks to the A", 1700, False,
-     "every Bed-Stuy spelling must carry the lower cap"),
+    ("Crown Heights brownstone room, sunny and quiet", 1550, True, "exactly at the lower cap"),
+    ("Crown Heights brownstone room, sunny and quiet", 1551, False, "$1 over the lower cap"),
+    ("Room in Prospect-Lefferts Gardens, 2 blocks to the Q", 1700, False,
+     "every PLG spelling must carry the lower cap"),
     ("Crown Heights sublet near the 2/3 train", 1600, False,
      "passed under the old $1,650 cap, must not now"),
     ("Greenwood Heights room by the park", 1700, False, ""),
@@ -96,7 +98,7 @@ CAP_CASES = [
     ("Williamsburg room near the Bedford L", 1800, True, "exactly at the higher cap"),
     ("Williamsburg room near the Bedford L", 1801, False, "$1 over the higher cap"),
     ("Clinton Hill room with big windows", 1750, True,
-     "Central BK, but not a cheaper area — Bed-Stuy is the only one there"),
+     "Central BK has no cheaper areas since Bed-Stuy was dropped"),
     ("Park Slope 1BR steps from Flatbush Ave", 1750, True,
      "ORDER: routes Central, so naming Flatbush Ave must not drag it to the lower cap"),
     ("East Village studio, 3 month sublet", 1800, True, ""),
