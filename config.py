@@ -159,23 +159,28 @@ CHEAPER_AREAS = [
 # ─── Craigslist search groups (sublets/rooms categories only) ─────────────────
 
 CL_SEARCH_GROUPS = {
+    # Each string goes to Craigslist verbatim as `query=`. Craigslist requires
+    # EVERY bare word to appear, so areas are OR-ed with `|` and multi-word names
+    # are quoted — unquoted, `|` splits "lower east side" into separate words.
+    # Live check 2026-10-07 (sublets+rooms): "soho tribeca chelsea lower east side"
+    # → 1, the form below → 16; the Prospect Hts/Crown Hts/Bed-Stuy group 1 → 44.
     "nyc": [
         # Manhattan
-        "soho tribeca chelsea lower east side",
-        "east village west village greenwich village",
-        "financial district battery park city",
-        "midtown east murray hill koreatown",
+        'soho|tribeca|chelsea|"lower east side"',
+        '"east village"|"west village"|"greenwich village"',
+        '"financial district"|"battery park"',
+        '"midtown east"|"murray hill"|koreatown',
         # North Brooklyn ("bushwick" group dropped 2026-08-21)
-        "williamsburg greenpoint",
+        'williamsburg|greenpoint',
         # Central Brooklyn
-        "downtown brooklyn carroll gardens",
-        "park slope cobble hill",
-        "brooklyn heights fort greene clinton hill",
-        "prospect heights crown heights bed stuy",
+        '"downtown brooklyn"|"carroll gardens"',
+        '"park slope"|"cobble hill"',
+        '"brooklyn heights"|"fort greene"|"clinton hill"',
+        '"prospect heights"|"crown heights"|"bed stuy"',
         # South Brooklyn ("ditmas park", "windsor terrace" dropped 2026-09-25)
-        "flatbush prospect lefferts gardens",
+        'flatbush|"prospect lefferts gardens"',
         # "sunset park" dropped 2026-08-26 (user request)
-        "greenwood heights",
+        '"greenwood heights"',
     ],
 }
 

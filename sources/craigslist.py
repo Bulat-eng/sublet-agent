@@ -20,6 +20,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import config
+import db
 from models import Listing
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,11 @@ CL_SITES = {
     "nyc": "https://newyork.craigslist.org",
 }
 
-MAX_RESULTS_PER_SEARCH = 30
+MAX_RESULTS_PER_SEARCH = 100
+# Uncached detail pages fetched per run (~2s each). The OR-ed searches return
+# ~200 listings, so the first run after a cold cache backfills over a few runs
+# instead of blowing the workflow's 10-minute timeout.
+MAX_NEW_DETAILS_PER_RUN = 40
 
 
 def _headers() -> dict:
@@ -182,6 +187,8 @@ def fetch(region: str = "nyc") -> list[Listing]:
     groups = config.CL_SEARCH_GROUPS.get(region, [])
     site_url = CL_SITES.get(region, CL_SITES["nyc"])
 
+    new_details = 0
+
     for query in groups:
         for cat_name, cat_code in CATEGORIES.items():
             entries = _fetch_search(site_url, cat_code, query)
@@ -193,8 +200,18 @@ def fetch(region: str = "nyc") -> list[Listing]:
                     continue
                 seen_urls.add(url)
 
-                detail = _scrape_detail(url)
-                price  = detail.get("price") or entry.get("price")
+                detail = db.get_cl_detail(url)
+                if detail is None:
+                    if new_details >= MAX_NEW_DETAILS_PER_RUN:
+                        continue  # picked up on a later run
+                    detail = _scrape_detail(url)
+                    new_details += 1
+                    if detail:
+                        db.put_cl_detail(url, detail)
+                    price = detail.get("price") or entry.get("price")
+                else:
+                    # Cached page may be stale; the search-page price is fresh
+                    price = entry.get("price") or detail.get("price")
 
                 listings.append(Listing(
                     id=_make_id(url),
@@ -214,7 +231,7 @@ def fetch(region: str = "nyc") -> list[Listing]:
 
             time.sleep(random.uniform(3.0, 6.0))
 
-    logger.info(f"[CL {region}] total: {len(listings)} listings")
+    logger.info(f"[CL {region}] total: {len(listings)} listings ({new_details} detail pages fetched)")
     return listings
 
 
@@ -228,6 +245,7 @@ def fetch_all() -> list[Listing]:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    db.init_db()
     results = fetch_all()
     print(f"\n=== {len(results)} listings ===")
     for r in results[:5]:

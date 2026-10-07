@@ -6,6 +6,7 @@ State is committed back to the repo by the GitHub Actions workflow.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import logging
 import os
@@ -30,6 +31,15 @@ def init_db():
         CREATE TABLE IF NOT EXISTS source_runs (
             source   TEXT PRIMARY KEY,
             last_run TEXT
+        )
+    """)
+    # Craigslist detail-page cache: each listing's page is fetched once, not
+    # every run (OR-ed searches return ~200 listings — see CL_SEARCH_GROUPS).
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS cl_details (
+            url        TEXT PRIMARY KEY,
+            detail     TEXT,
+            fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     conn.commit()
@@ -84,11 +94,33 @@ def set_last_run(source: str):
     conn.close()
 
 
+def get_cl_detail(url: str) -> dict | None:
+    """Return the cached Craigslist detail dict for `url`, or None if not cached."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT detail FROM cl_details WHERE url = ?", (url,))
+    row = c.fetchone()
+    conn.close()
+    return json.loads(row[0]) if row else None
+
+
+def put_cl_detail(url: str, detail: dict):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR REPLACE INTO cl_details (url, detail) VALUES (?, ?)",
+        (url, json.dumps(detail)),
+    )
+    conn.commit()
+    conn.close()
+
+
 def purge_old(days: int = 45):
     """Remove entries older than `days` so the DB stays lean."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM seen WHERE seen_at < datetime('now', ?)", (f"-{days} days",))
+    c.execute("DELETE FROM cl_details WHERE fetched_at < datetime('now', ?)", (f"-{days} days",))
     deleted = conn.total_changes
     conn.commit()
     conn.close()
