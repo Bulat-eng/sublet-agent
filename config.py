@@ -34,7 +34,7 @@ LATEST_MOVE_IN   = None          # flag listings starting after this
 #     routes to Central, not South.
 #   * Manhattan before Brooklyn (see the chinatown note below).
 #
-# Sub-area keywords ("east williamsburg", "bed-stuy") rarely change WHETHER a
+# Sub-area keywords ("east williamsburg", "south slope") rarely change WHETHER a
 # listing is kept — the parent name usually matches anyway — but they do change
 # the LABEL shown in the email, since the regex returns the earliest match.
 # "los sures" is the exception: it contains no "Williamsburg" at all.
@@ -43,7 +43,7 @@ LATEST_MOVE_IN   = None          # flag listings starting after this
 # Rebuilt 2026-08-21: Manhattan split into three bands (midtown / midtown_to_fidi
 # / fidi), Brooklyn re-cut, Bushwick and Red Hook dropped, ~36 areas added.
 # Sunset Park removed 2026-08-26. Ditmas Park, Prospect Park South and Windsor
-# Terrace removed 2026-09-25.
+# Terrace removed 2026-09-25. Bed-Stuy removed 2026-10-07.
 
 REGIONS = {
     # ── Manhattan: ~34th to 59th ──
@@ -116,8 +116,10 @@ REGIONS = {
             "columbia street waterfront district", "columbia waterfront",
             "fort greene", "clinton hill", "gowanus",
             "park slope", "south slope", "prospect heights",
-            "bedford-stuyvesant", "bedford stuyvesant",
-            "bed-stuy", "bed stuy", "bedstuy",
+            # Bed-Stuy (all five spellings) dropped 2026-10-07 (user request).
+            # KNOWN LEAK: a listing that also names a neighbor still in scope —
+            # "Bed-Stuy/Clinton Hill border", "Crown Heights near Bed-Stuy" —
+            # still clears the area filter, labelled with that neighbor.
         ],
     },
     "south_brooklyn": {
@@ -144,12 +146,11 @@ NEIGHBORHOOD_KEYWORDS = [
 ]
 
 # Neighborhoods held to CHEAPER_AREA_MAX_RENT instead of MAX_RENT. Entries are
-# REGIONS keywords, so list every spelling variant (see Bed-Stuy). The cap follows
+# REGIONS keywords, so list every spelling variant (see PLG). The cap follows
 # the keyword a listing is matched on, so the region ORDER note above applies
 # here too: a Park Slope listing naming "Flatbush Ave" keeps the higher cap.
 CHEAPER_AREAS = [
-    # Central Brooklyn
-    "bedford-stuyvesant", "bedford stuyvesant", "bed-stuy", "bed stuy", "bedstuy",
+    # (Bed-Stuy, the only Central Brooklyn entry, dropped 2026-10-07)
     # South Brooklyn (currently the whole region)
     "greenwood heights", "prospect lefferts gardens", "prospect-lefferts gardens",
     "crown heights", "flatbush",
@@ -176,7 +177,8 @@ CL_SEARCH_GROUPS = {
         '"downtown brooklyn"|"carroll gardens"',
         '"park slope"|"cobble hill"',
         '"brooklyn heights"|"fort greene"|"clinton hill"',
-        '"prospect heights"|"crown heights"|"bed stuy"',
+        # "bed stuy" dropped 2026-10-07 (user request)
+        '"prospect heights"|"crown heights"',
         # South Brooklyn ("ditmas park", "windsor terrace" dropped 2026-09-25)
         'flatbush|"prospect lefferts gardens"',
         # "sunset park" dropped 2026-08-26 (user request)
@@ -200,11 +202,10 @@ CL_SEARCH_GROUPS = {
 #   brooklyn/vinegar_hill
 #
 # No SEO page exists at all (302), so these rely on Craigslist / Reddit / Ohana /
-# Listings Project instead: Bed-Stuy (every spelling tried), South Slope,
-# Turtle Bay, Midtown South, NoMad, Rose Hill, Hudson Square, World Trade Center,
-# Herald Square, Peter Cooper Village, Cooperative Village, Seaport.
-# Bed-Stuy is the notable loss given its volume — recovering it means following
-# SpareRoom's redirect to the search endpoint, a scraper change, not a config one.
+# Listings Project instead: South Slope, Turtle Bay, Midtown South, NoMad,
+# Rose Hill, Hudson Square, World Trade Center, Herald Square, Peter Cooper
+# Village, Cooperative Village, Seaport. (Bed-Stuy also had no SEO page; it was
+# covered via SPAREROOM_SEARCH_QUERIES below until it was dropped 2026-10-07.)
 
 SPAREROOM_AREAS = [
     # Midtown
@@ -259,7 +260,8 @@ SPAREROOM_AREAS = [
 # routing Crown Heights to its own region.
 
 SPAREROOM_SEARCH_QUERIES = [
-    "Bedford Stuyvesant",
+    # "Bedford Stuyvesant" dropped 2026-10-07 (user request) — it was the only
+    # entry. Kept as an empty list so the fallback is easy to re-enable.
 ]
 
 

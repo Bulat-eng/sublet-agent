@@ -2,6 +2,25 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.8.2] — 2026-10-07
+
+### Removed
+- **Bed-Stuy** (user request), from everywhere it was configured:
+  - all five spellings from `REGIONS["central_brooklyn"]`, so Bed-Stuy listings
+    are now rejected as "wrong area" (62 → 61 neighborhoods)
+  - the same five from `CHEAPER_AREAS` (Central Brooklyn now has no cheaper areas)
+  - `"bed stuy"` from the Prospect Heights / Crown Heights Craigslist query group
+  - `"Bedford Stuyvesant"` from `SPAREROOM_SEARCH_QUERIES`, now an empty list —
+    one fewer SpareRoom request per run
+- Routing tests now assert every Bed-Stuy spelling routes to `None`; the rent-cap
+  tests that used Bed-Stuy moved to Crown Heights / PLG. 48/48 passing.
+
+### Known leak (by choice)
+- A listing that names Bed-Stuy **and** an in-scope neighbor ("Clinton Hill /
+  Bed-Stuy border", "Crown Heights near Bed-Stuy") still clears the area filter,
+  labelled with the neighbor. Same trade-off as the Ditmas Park / Flatbush leak.
+  A hard Bed-Stuy exclude would close it but also drop genuine border listings.
+
 ## [0.8.1] — 2026-10-07
 
 ### Changed
