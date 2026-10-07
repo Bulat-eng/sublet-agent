@@ -98,12 +98,12 @@ def _check_move_in(listing: Listing) -> str | None:
     except (ValueError, TypeError):
         return None
 
-    earliest = date.fromisoformat(config.EARLIEST_MOVE_IN)
-    latest   = date.fromisoformat(config.LATEST_MOVE_IN)
+    earliest = config.EARLIEST_MOVE_IN and date.fromisoformat(config.EARLIEST_MOVE_IN)
+    latest   = config.LATEST_MOVE_IN and date.fromisoformat(config.LATEST_MOVE_IN)
 
-    if d < earliest:
+    if earliest and d < earliest:
         return f"early-move-in:{listing.move_in_date}"
-    if d > latest:
+    if latest and d > latest:
         return f"late-move-in:{listing.move_in_date}"
     return None
 

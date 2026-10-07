@@ -2,6 +2,31 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.8.1] — 2026-10-07
+
+### Changed
+- **Cheaper-area cap lowered: `CHEAPER_AREA_MAX_RENT` $1,650 → $1,550** (Bed-Stuy,
+  Crown Heights, Flatbush, PLG, Greenwood Heights). `MAX_RENT` stays $1,800.
+- **Move-in window opened.** `EARLIEST_MOVE_IN` / `LATEST_MOVE_IN` now accept
+  `None` (no bound) and both are `None`, so listings are no longer tagged
+  "filter not passed — late-move-in" after the old 2026-09-30 end date. Set
+  either back to an ISO date to restore the flag.
+
+### Fixed
+- **Craigslist was under-fetching.** Each `CL_SEARCH_GROUPS` string goes verbatim
+  as `query=`, and Craigslist requires every bare word — so a group like
+  `"soho tribeca chelsea lower east side"` only matched listings naming all four
+  (1 result). Groups are now OR-ed with `|`, multi-word names quoted:
+  ~11 → ~191 unique listings across the 11 groups (live, 2026-10-07).
+- `MAX_RESULTS_PER_SEARCH` 30 → 100; OR-ed groups return up to ~40 per category.
+
+### Added
+- **Craigslist detail-page cache** (`cl_details` table in `state.db`, purged with
+  `seen` after 45 days). Each listing's page is fetched once instead of every run,
+  at most 40 new pages per run (`MAX_NEW_DETAILS_PER_RUN`), so the larger result
+  set doesn't blow the 10-minute workflow timeout; the cold cache backfills over
+  ~5 runs. Cached listings use the fresh search-page price.
+
 ## [0.8.0] — 2026-09-25
 
 ### Added

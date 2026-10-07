@@ -387,16 +387,13 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     arrives in the digest labelled Manhattan. No longer cosmetic — it admits listings the
     user asked to exclude. Fix would be a negative match on `"brooklyn chinatown"` in
     `filter._assign_region`, ahead of the region scan. **Not implemented — ask first.**
-13. **⚠️ Craigslist search strings may be under-fetching (spotted 2026-09-25, not fixed).**
-    Each `CL_SEARCH_GROUPS` string goes to Craigslist verbatim as `query=`, and Craigslist
-    appears to require *every* word to appear. Live counts (sublets + rooms, ≤ $1,800):
-    `"soho tribeca chelsea lower east side"` → **1**, but `"soho|tribeca|chelsea|lower east side"`
-    → **7** and bare `"chelsea"` alone → **5**; `"flatbush ditmas park prospect lefferts gardens"`
-    → 1 vs `"flatbush prospect lefferts gardens"` → 6. Not uniform, though:
-    `"prospect heights crown heights bed stuy"` returned 3 either way. Small samples, so
-    **confirm before changing** — the likely fix is joining each group's areas with `|`
-    (Craigslist's OR operator) in `CL_SEARCH_GROUPS`, or one query per area.
-14. **🟡 Move-in window ends 2026-09-30.** `LATEST_MOVE_IN = "2026-09-30"` in `config.py`.
+13. **✅ Craigslist under-fetching — FIXED 2026-10-07 (v0.8.1).** Confirmed live: Craigslist
+    requires every bare word in `query=`. `CL_SEARCH_GROUPS` is now `|`-joined with multi-word
+    names quoted (unquoted, `|` splits `lower east side` into words): ~11 → ~191 unique listings.
+    Because every CL listing gets a detail-page fetch (~2 s each), a new `cl_details` cache in
+    `state.db` stores each page once, capped at 40 new fetches/run — watch the first few
+    `hunt` runs' durations (were up to ~5 min, timeout is 10).
+14. **✅ Move-in window — RESOLVED 2026-10-07 (v0.8.1).** Both bounds set to `None` (no flag); he is subletting open-endedly until the right place turns up.
     After that, every listing with a parsed move-in date gets a `late-move-in:<date>` tag, and
     tags render as pills in the digest — so most dated listings will carry one. Soft tag only:
     nothing is dropped. Mentioned to the user once on 2026-09-25, no decision yet — the new
