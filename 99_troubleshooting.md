@@ -59,6 +59,15 @@ git pull --rebase
 - **Fix:**
 - **How to detect earlier next time:**
 
+### 2026-10-13 — "Little Haiti" listings arriving though it was never a search area
+- **What broke:** The user kept getting Ohana rooms titled "Private Room in Little Haiti" (6 emailed 2026-09-14 → 2026-10-13 ET) and doesn't want that area.
+- **Symptom in logs:** *None* — they pass the filter normally, routed to South Brooklyn on `flatbush` or `prospect lefferts gardens`.
+- **Root cause:** Little Haiti, BK is a 2018 cultural-district name for part of Flatbush / East Flatbush, not a keyword we had. The rooms' descriptions say "New York City's Flatbush" or "New York City Prospect Lefferts Gardens" — both targets. Two more gotchas:
+  1. **Ohana geocodes them to Little Haiti, Miami, FL** (`neighborhood_geographic_address`) — the same unreliable field as the Brisbane/Oregon cases in the 2026-07-19 Ohana note. `_neighborhood()` already discards non-NY addresses, so filtering is unaffected, but the listing page's map may show Miami.
+  2. **Whole-word matching doesn't stop a keyword matching inside a longer place name.** `\bflatbush\b` matches "East Flatbush", so East Flatbush was silently in scope (cf. "east williamsburg" reopening Bushwick).
+- **Fix:** v0.9.0 `EXCLUDED_AREAS` — a name block checked in `_assign_region` before the region scan, so it wins even when the listing also names a target. Also guarded `_hood_regex([])`: an empty alternation, `\b(?:)\b`, matches *every* string.
+- **How to detect earlier next time:** when the user says "I keep getting listings from X" and X isn't in `REGIONS`, X is a nickname or sub-area of a target. Grep `seen` URLs for it (Ohana and Craigslist slugs carry the title: `sqlite3 state.db "SELECT seen_at,url FROM seen WHERE url LIKE '%x%'"`), then run `_assign_region` on the listing text to see which keyword let it in. When adding a keyword, check for compound names that contain it ("East ___", "South ___").
+
 ### 2026-08-16 — Ohana digest price ≠ price on the listing page (DIAGNOSED, NOT FIXED)
 - **What broke:** Listings passed the budget filter and showed e.g. $1,489 / $1,585 in the digest; clicking through to liveohana.ai showed a much higher, over-budget price ($2,119).
 - **Symptom in logs:** *None* — nothing errors. This is a silent correctness bug, which is why it went unnoticed. Only visible by comparing a digest price against the live page.

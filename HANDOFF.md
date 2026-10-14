@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-10-13 — **v0.9.0**: **Little Haiti and East Flatbush blocked by name** via a new `EXCLUDED_AREAS` list in `config.py` — a mention rejects the listing even when an in-scope area is also named. The user picked this over dropping Flatbush; **Flatbush and PLG stay in scope**. PR #6, CI pending, **not merged** at time of writing — see "Last session". Previous entry: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -19,7 +19,7 @@ main.py                     → Orchestrator: one run per GH Actions tick.
                               Per-source cadence gating (honors SOURCE_CADENCE_MINUTES).
 config.py                   → ALL prefs: budget, move-in window, REGIONS + neighborhoods,
                               SPAREROOM_AREAS, cadences, secrets-from-env.
-filter.py                   → HARD (budget, wrong-area) + SOFT (duration/move-in/furnished
+filter.py                   → HARD (budget, wrong-area incl. EXCLUDED_AREAS name blocks) + SOFT (duration/move-in/furnished
                               tags) + SCAM filters. Whole-word neighborhood routing.
 db.py                       → SQLite dedup (`seen` table) + per-source last-run
                               (`source_runs` table). Committed back to repo by the workflow.
@@ -45,7 +45,7 @@ sources/ohana.py            → liveohana.ai public Bubble Data API (plain HTTP,
 .github/workflows/ci.yml    → PR + push-to-main checks: module imports, region-routing
                               tests, config integrity. Ignores state.db pushes so the
                               bot's ~96 daily state commits don't each trigger a run.
-test_regions.py             → 30 region-routing cases. No pytest — run it directly.
+test_regions.py             → 55 cases: routing, name blocks, rent caps. No pytest — run it directly.
                               RE-RUN AFTER ANY `REGIONS` EDIT (ordering is load-bearing).
 ```
 
@@ -91,12 +91,70 @@ value back**, so if the app password is ever lost it must be regenerated at
 
   **`REGIONS` dict order is load-bearing** — `filter._assign_region` returns the *first region* that matches, so `central_brooklyn` MUST precede `south_brooklyn` (a Park Slope listing naming "Flatbush Ave" would otherwise be mislabelled South). Covered by `test_regions.py`.
   (Queens removed 2026-07-11; New Jersey 2026-07-24; Bushwick 2026-08-21; Sunset Park 2026-08-26; **Ditmas Park, Prospect Park South, Windsor Terrace 2026-09-25**; **Bed-Stuy 2026-10-07** — Ditmas Park listings that also say "Flatbush", and Bed-Stuy listings that also name an in-scope neighbor, still get through, by choice. Hell's Kitchen deliberately excluded.)
+- **Blocked by name (`EXCLUDED_AREAS`, since v0.9.0):** Little Haiti; East Flatbush (`east flatbush`, `e flatbush`, `e. flatbush`). A mention rejects the listing even if it also names an in-scope area — checked in `_assign_region` before the region scan. That's the opposite of a `REGIONS` removal, which leaks border listings (Bed-Stuy, Ditmas Park).
 - **SpareRoom:** **40** neighborhood paths in `SPAREROOM_AREAS`, plus `SPAREROOM_SEARCH_QUERIES` for areas with no SEO page (currently empty — `"Bedford Stuyvesant"`, its only entry, was dropped 2026-10-07).
 - **⚠️ `MEDIANS` still covers only the original 13 neighborhoods**, so the "% vs median" line in the digest is silently skipped for all 36 newly-added areas — including Crown Heights.
 
 ---
 
-## Last session (2026-10-07) — Bed-Stuy removed (`v0.8.2`)
+## Last session (2026-10-13) — Little Haiti + East Flatbush blocked (`v0.9.0`)
+
+**What the user asked for:** "I keep getting apartments from Little Haiti… I don't like that
+area", plus a list of every area being searched. (The session opened in a scratch folder;
+`~/Documents/sublet-agent` no longer exists — the repo lives here since the 2026-08-21 move.)
+
+### 1. Diagnosis — the filter was doing what it was told
+- All 6 Little Haiti emails (2026-09-14 → 2026-10-13 ET; `seen` URLs
+  `liveohana.ai/listing/private-room-in-little-haiti[-N]`) came from **Ohana**: one landlord's
+  83–182 sq ft rooms. Titles say "Private Room in Little Haiti"; descriptions say "New York
+  City's Flatbush" or "New York City Prospect Lefferts Gardens", so they routed to
+  `south_brooklyn`. 8 were live; the 3 under $1,550 were passing.
+- Little Haiti, BK is a 2018 cultural-district designation (≈ E 16th St → Brooklyn Ave,
+  Parkside/Church Ave → Ave H) inside Flatbush / East Flatbush, so there was no keyword to
+  remove. With Ditmas Park / PPS gone, what's left of "Flatbush" is largely the same blocks.
+- Ohana geocodes these rooms to **Little Haiti, Miami, FL** — harmless for filtering, logged
+  in `99_troubleshooting.md`.
+
+### 2. Options offered, and the pick
+A) block the name "Little Haiti"; **B) A + block "East Flatbush" — chosen**; C) A + drop
+Flatbush entirely — Claude recommended C, the user chose B. Flatbush and PLG stay. Don't
+re-raise C unless the user complains about Flatbush listings again.
+
+### 3. What changed (PR #6, branch `block-little-haiti-east-flatbush`)
+- `config.EXCLUDED_AREAS`: `little haiti`, `east flatbush`, `e flatbush`, `e. flatbush`.
+  Spellings from live data (CL cache + Ohana): 8× "East Flatbush", 1× "E Flatbush", 7×
+  "Little Haiti"; the dotted form is a guess.
+- `filter._assign_region` returns `(None, None)` when `_EXCLUDED_RE` matches, **before** the
+  region scan, so the block beats in-scope neighbors (the opposite of the Bed-Stuy leak).
+  These count as "wrong area" in the run log.
+- `_hood_regex([])` now returns a never-matching pattern (an empty alternation matched
+  everything, so an emptied `EXCLUDED_AREAS` would have blocked every listing).
+- CI config integrity fails on a keyword in both `EXCLUDED_AREAS` and `REGIONS`.
+- Tests **55/55** (42 routing, 13 rent cap), including the real Ohana listing text.
+- **Side effect, disclosed to the user after they chose B:** a listing that merely
+  *mentions* East Flatbush is dropped too. Live, 2026-10-13: Ohana kept 65 → 61 — the 3 Little
+  Haiti rooms plus one Crown Heights room on Empire Blvd ($1,444, already emailed 2026-10-05)
+  whose description says "Crown Heights and East Flatbush". All 7 Craigslist hits in the
+  ~6-week `cl_details` cache were genuinely East Flatbush. If the user wants it softened:
+  strip `east flatbush` from the text before the region scan instead of vetoing — but that
+  leaks East Flatbush listings that also say "Flatbush" (1 of the 7).
+
+### 4. Not yet verified in production
+After the merge, on the first `hunt` run on the merge SHA: no new
+`private-room-in-little-haiti-*` URLs in `seen`, and "wrong area" rejections tick up slightly.
+Note the Craigslist `flatbush|"prospect lefferts gardens"` group still returns East Flatbush
+listings, and each costs a detail-page fetch (cached; 40/run cap) before being rejected —
+~7 per 6 weeks, not worth a query change.
+
+### 5. Workflow notes
+- `change_directory` to `~/Documents/sublet-agent` fails ("could not be resolved"). Locate the
+  repo with `find ~ -maxdepth 4 -type d -iname '*sublet*' -not -path '*/Library/*'`.
+- The local clone was 153 bot `state:` commits behind; with a clean tree, `git pull --ff-only`
+  is safe.
+
+---
+
+## Previous session (2026-10-07) — Bed-Stuy removed (`v0.8.2`)
 
 **What the user asked for:** "I don't want Bedstay to be in my searches for the apartments for
 summer" — i.e. Bed-Stuy, in this agent. (The session started in the wrong repo,
@@ -434,6 +492,7 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     arrives in the digest labelled Manhattan. No longer cosmetic — it admits listings the
     user asked to exclude. Fix would be a negative match on `"brooklyn chinatown"` in
     `filter._assign_region`, ahead of the region scan. **Not implemented — ask first.**
+    **Since v0.9.0 that's a one-line change:** add `"brooklyn chinatown"` to `EXCLUDED_AREAS`.
 13. **✅ Craigslist under-fetching — FIXED 2026-10-07 (v0.8.1).** Confirmed live: Craigslist
     requires every bare word in `query=`. `CL_SEARCH_GROUPS` is now `|`-joined with multi-word
     names quoted (unquoted, `|` splits `lower east side` into words): ~11 → ~191 unique listings.
@@ -448,7 +507,8 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     ("Clinton Hill / Bed-Stuy border", "Crown Heights near Bed-Stuy") passes, labelled with
     that neighbor. Same trade-off as the Ditmas Park / Flatbush leak. A hard Bed-Stuy negative
     match would close it but also drop genuine border listings. **Not implemented — ask first,
-    and only if the user complains about Bed-Stuy listings still arriving.**
+    and only if the user complains about Bed-Stuy listings still arriving.** Since v0.9.0 the
+    mechanism exists: put the five spellings in `EXCLUDED_AREAS`.
 
 ---
 
@@ -458,12 +518,13 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
 |---|---|
 | Change budget / move-in / bedrooms | Edit constants at top of `config.py`. Two caps: `MAX_RENT` (must stay the higher one) and `CHEAPER_AREA_MAX_RENT`, which applies to the keywords in `CHEAPER_AREAS` |
 | Add/remove neighborhoods | Edit `REGIONS` in `config.py` (drives filtering + email section grouping), **plus** `CL_SEARCH_GROUPS` and `SPAREROOM_AREAS`, and `CHEAPER_AREAS` if it's a cheaper-tier area (CI fails on a `CHEAPER_AREAS` entry that isn't in `REGIONS`) |
+| Block an area by name (beats in-scope neighbors) | Add every spelling to `EXCLUDED_AREAS` in `config.py`. Checked before the region scan; CI fails if a keyword is also in `REGIONS`. Re-run the region tests |
 | Add/remove SpareRoom areas | Edit `SPAREROOM_AREAS` — path format `borough/neighborhood`; verify the URL returns listings first |
 | Change Ohana scope | `OHANA_CITIES` (Bubble city labels; Manhattan = `"New York"`). The price ceiling is inherited from `MAX_RENT`. `OHANA_MAX_LISTINGS` caps the paginated total |
 | Test the changed sources | `python -m sources.listings_project` · `python -m sources.ohana` (both print a sample; no email/DB writes) |
 | Change per-source frequency | Edit `SOURCE_CADENCE_MINUTES` (Ohana 20m, Listings Project 6h) |
 | Tune Reddit seeker detection | `REDDIT_SEEKER_NOUNS` + the `_SEEKER_RE` regex in `sources/reddit.py` |
-| **Run the region tests (after ANY `REGIONS` / `CHEAPER_AREAS` edit)** | `.venv/bin/python test_regions.py` — 48 cases (36 routing, 12 rent cap), no pytest needed |
+| **Run the region tests (after ANY `REGIONS` / `CHEAPER_AREAS` / `EXCLUDED_AREAS` edit)** | `.venv/bin/python test_regions.py` — 55 cases (42 routing, 13 rent cap), no pytest needed |
 | Add a SpareRoom area | Add to `SPAREROOM_AREAS`; **verify it returns HTTP 200 first** — a bad path 302s to a form that still returns 200 |
 | Cover an area with no SpareRoom SEO page | Add the **bare gazetteer name** to `SPAREROOM_SEARCH_QUERIES`; confirm where it resolves (`"Seaport"` → California) |
 | Debug why a listing routed somewhere | `python -c "from filter import _assign_region; print(_assign_region('<card text>'))"` |

@@ -78,11 +78,17 @@ jobs:
           unknown = sorted(set(config.CHEAPER_AREAS) - set(keywords))
           assert not unknown, f"CHEAPER_AREAS not in REGIONS: {unknown}"
 
+          # EXCLUDED_AREAS is checked before REGIONS, so a keyword in both would
+          # silently reject that whole area — drop it from REGIONS instead.
+          clash = sorted(set(config.EXCLUDED_AREAS) & set(keywords))
+          assert not clash, f"keyword(s) in both EXCLUDED_AREAS and REGIONS: {clash}"
+
           # Scrapers fetch server-side up to MAX_RENT, so it must be the higher
           # cap or listings between the two would never be fetched at all.
           assert config.CHEAPER_AREA_MAX_RENT <= config.MAX_RENT, (
               "CHEAPER_AREA_MAX_RENT must not exceed MAX_RENT")
 
           print(f"config OK — {len(config.REGIONS)} regions, {len(keywords)} keywords, "
+                f"{len(config.EXCLUDED_AREAS)} excluded, "
                 f"{len(config.SPAREROOM_AREAS)} SpareRoom areas")
           PY
