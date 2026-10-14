@@ -1,11 +1,12 @@
 """
-Region-routing and per-area rent-cap regression tests.
+Region-routing, blocked-area and per-area rent-cap regression tests.
 
 No pytest dependency — run directly:
 
     .venv/bin/python test_regions.py
 
-Re-run after ANY change to config.REGIONS or config.CHEAPER_AREAS. These cases
+Re-run after ANY change to config.REGIONS, config.CHEAPER_AREAS or
+config.EXCLUDED_AREAS. These cases
 encode decisions that are easy to break silently, especially region ORDER (see
 99_troubleshooting.md).
 """
@@ -38,6 +39,18 @@ CASES = [
     ("Bedford-Stuyvesant share", None, "same — hyphenated form"),
     ("Bed Stuy sublet near the A/C", None, "same — spaced form"),
 
+    # ── Blocked by name (EXCLUDED_AREAS): the block beats an in-scope area ──
+    ("Private Room in Little Haiti This 135-square-foot room on New York City's Flatbush",
+     None, "real Ohana listing, emailed before 2026-10-13 — it names Flatbush"),
+    ("Private Room in Little Haiti This 108-square-foot room on New York City Prospect "
+     "Lefferts Gardens", None, "same landlord, described as PLG — dropping Flatbush "
+     "alone would not have stopped it"),
+    ("East Flatbush 1BR near the 2/5 at Church Ave", None,
+     "blocked 2026-10-13 — bare 'flatbush' matches inside it"),
+    ("Sunny room in E Flatbush, utilities included", None, "abbreviation seen live"),
+    ("Crown Heights / East Flatbush border, big room", None,
+     "by choice: unlike the Bed-Stuy leak, a blocked name wins over an in-scope neighbor"),
+
     # ── ORDER-DEPENDENT: 'Flatbush Ave' is a cross street, not the neighborhood ──
     ("Park Slope 1BR steps from Flatbush Ave", "central_brooklyn",
      "central_brooklyn MUST precede south_brooklyn or this mislabels as South"),
@@ -50,6 +63,8 @@ CASES = [
     ("Room in Flatbush - Ditmas Park, near the Q", "south_brooklyn",
      "KNOWN LEAK, by choice: Ditmas Park sits inside Flatbush (see config note)"),
     ("Crown Heights sublet", "south_brooklyn", ""),
+    ("Prospect Lefferts Gardens room near the Q", "south_brooklyn",
+     "PLG stays in scope — only the Little Haiti / East Flatbush names are blocked"),
 
     # ── Central Brooklyn ──
     ("Clinton Hill room, Bed-Stuy border", "central_brooklyn",
@@ -93,6 +108,8 @@ CAP_CASES = [
     ("Greenwood Heights room by the park", 1700, False, ""),
     ("Room in Flatbush - Ditmas Park, near the Q", 1700, False,
      "the Ditmas Park leak lands on Flatbush, so it still gets the lower cap"),
+    ("Private Room in Little Haiti This 83-square-foot room on New York City's Flatbush",
+     1310, False, "real $1,310 Ohana room: under the cap, but blocked by name"),
 
     # ── Everywhere else: $1,800 ──
     ("Williamsburg room near the Bedford L", 1800, True, "exactly at the higher cap"),

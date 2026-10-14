@@ -43,7 +43,8 @@ LATEST_MOVE_IN   = None          # flag listings starting after this
 # Rebuilt 2026-08-21: Manhattan split into three bands (midtown / midtown_to_fidi
 # / fidi), Brooklyn re-cut, Bushwick and Red Hook dropped, ~36 areas added.
 # Sunset Park removed 2026-08-26. Ditmas Park, Prospect Park South and Windsor
-# Terrace removed 2026-09-25. Bed-Stuy removed 2026-10-07.
+# Terrace removed 2026-09-25. Bed-Stuy removed 2026-10-07. Little Haiti and East
+# Flatbush blocked by name 2026-10-13 (see EXCLUDED_AREAS below).
 
 REGIONS = {
     # ── Manhattan: ~34th to 59th ──
@@ -135,6 +136,8 @@ REGIONS = {
             # NOTE: Ditmas Park and Prospect Park South (dropped 2026-09-25) sit
             # inside Flatbush, so a listing naming both — e.g. SpareRoom's
             # "Flatbush - Ditmas Park" — still gets through, labelled Flatbush.
+            # "flatbush" also matches inside "East Flatbush"; that and Little
+            # Haiti (a district within Flatbush) are blocked in EXCLUDED_AREAS.
             "flatbush",
         ],
     },
@@ -154,6 +157,25 @@ CHEAPER_AREAS = [
     # South Brooklyn (currently the whole region)
     "greenwood heights", "prospect lefferts gardens", "prospect-lefferts gardens",
     "crown heights", "flatbush",
+]
+
+# Areas blocked BY NAME. A listing that mentions any of these is rejected as
+# "wrong area" even when it ALSO names a target neighborhood — the block wins.
+# That's the difference from dropping an area from REGIONS, which still lets
+# "<dropped area> / <in-scope area>" listings through (the Bed-Stuy and Ditmas
+# Park leaks). Whole-word matching, like REGIONS; list every spelling variant.
+# CI fails if a keyword is in both lists.
+EXCLUDED_AREAS = [
+    # Little Haiti, BK (2026-10-13, user request): the 2018 cultural district
+    # covering much of Flatbush and East Flatbush, so there was no REGIONS
+    # keyword to remove. Ohana rooms titled "Private Room in Little Haiti"
+    # describe themselves as Flatbush or PLG; blocking the name stops them while
+    # keeping both areas (the user chose this over dropping Flatbush).
+    "little haiti",
+    # East Flatbush (2026-10-13, user request): never a target — it only got in
+    # because "flatbush" matches inside it. "East Flatbush" and "E Flatbush" are
+    # the spellings seen live; "E. Flatbush" is the dotted form.
+    "east flatbush", "e flatbush", "e. flatbush",
 ]
 
 

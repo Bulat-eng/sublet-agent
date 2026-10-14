@@ -2,6 +2,38 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.9.0] — 2026-10-13
+
+### Added
+- **`EXCLUDED_AREAS`** in `config.py` — areas blocked **by name**. A listing that
+  mentions one is rejected as "wrong area" even when it also names a target
+  neighborhood: `filter._assign_region` checks it before the region scan. Unlike
+  dropping an area from `REGIONS`, this closes the "border listing" leak.
+- Blocked at the user's request:
+  - **Little Haiti** — a 2018 cultural district inside Flatbush / East Flatbush, so
+    there was no keyword to remove. Six Ohana rooms titled "Private Room in Little
+    Haiti" were emailed 2026-09-14 → 2026-10-13 (ET) because their descriptions say
+    "Flatbush" or "Prospect Lefferts Gardens".
+  - **East Flatbush** (`east flatbush`, `e flatbush`, `e. flatbush`) — never a target;
+    it got in because `flatbush` matches inside it.
+- Flatbush and PLG themselves **stay in scope** (the user chose this over dropping
+  Flatbush).
+- CI config integrity fails if a keyword is in both `EXCLUDED_AREAS` and `REGIONS`.
+- 6 new routing cases (5 blocked, incl. the real Ohana listing text and a Crown
+  Heights / East Flatbush border listing; 1 PLG still kept) and 1 rent-cap case.
+  55/55 passing.
+
+### Changed
+- `_hood_regex([])` now returns a never-matching pattern. An empty alternation,
+  `\b(?:)\b`, matches every string, so an emptied `EXCLUDED_AREAS` would have
+  blocked every listing.
+
+### Trade-off (by choice)
+- The block wins over in-scope areas, so a listing that only **mentions** East
+  Flatbush is dropped too. Live check 2026-10-13: 1 such Ohana listing (a $1,444
+  Crown Heights room on Empire Blvd, already emailed 2026-10-05); all 7 Craigslist
+  hits from the past ~6 weeks were genuinely East Flatbush.
+
 ## [0.8.2] — 2026-10-07
 
 ### Removed

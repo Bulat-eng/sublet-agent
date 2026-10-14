@@ -2,7 +2,7 @@
 Filter sublet listings against user criteria.
 
 Three layers:
-  - HARD filters → reject (over budget, wrong area)
+  - HARD filters → reject (over budget, wrong area — incl. areas blocked by name)
   - SOFT filters → flag via tags but keep (duration/move-in unknown)
   - SCAM filters → reject (suspiciously cheap, suspicious text patterns)
 """
@@ -40,6 +40,10 @@ def _hood_regex(hoods: list[str]) -> re.Pattern:
     words — e.g. "les" (Lower East Side) must NOT match "stainless"/"wireless",
     and "lic" (Long Island City) must NOT match "police".
     """
+    if not hoods:
+        # An empty alternation, \b(?:)\b, matches EVERY string — fatal for an
+        # emptied EXCLUDED_AREAS, which would then block every listing.
+        return re.compile(r"(?!)")
     alternation = "|".join(re.escape(h) for h in hoods)
     return re.compile(rf"\b(?:{alternation})\b", re.IGNORECASE)
 
@@ -47,6 +51,7 @@ def _hood_regex(hoods: list[str]) -> re.Pattern:
 # Precompiled matchers (built once at import) — per-region for routing, combined for membership
 _REGION_RES = {key: _hood_regex(r["neighborhoods"]) for key, r in config.REGIONS.items()}
 _NEIGHBORHOOD_RE = _hood_regex(config.NEIGHBORHOOD_KEYWORDS)
+_EXCLUDED_RE = _hood_regex(config.EXCLUDED_AREAS)
 _CHEAPER_AREAS = frozenset(config.CHEAPER_AREAS)
 
 
@@ -57,7 +62,13 @@ def _matches_neighborhood(text: str) -> str | None:
 
 
 def _assign_region(text: str) -> tuple[str | None, str | None]:
-    """Return (region_key, matched_neighborhood) for the first region whose neighborhood appears in text (whole-word match)."""
+    """Return (region_key, matched_neighborhood) for the first region whose neighborhood appears in text (whole-word match).
+
+    Text naming any config.EXCLUDED_AREAS keyword returns (None, None) even if it
+    also names a target neighborhood — checked first, so the block always wins.
+    """
+    if _EXCLUDED_RE.search(text):
+        return None, None
     for region_key, rx in _REGION_RES.items():
         m = rx.search(text)
         if m:
