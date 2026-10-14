@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-10-13 — **v0.9.0**: **Little Haiti and East Flatbush blocked by name** via a new `EXCLUDED_AREAS` list in `config.py` — a mention rejects the listing even when an in-scope area is also named. The user picked this over dropping Flatbush; **Flatbush and PLG stay in scope**. PR #6, CI pending, **not merged** at time of writing — see "Last session". Previous entry: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-10-13 — **v0.9.0**: **Little Haiti and East Flatbush blocked by name** via a new `EXCLUDED_AREAS` list in `config.py` — a mention rejects the listing even when an in-scope area is also named. The user picked this over dropping Flatbush; **Flatbush and PLG stay in scope**. PR #6, CI green, **squash-merged as `d0bd0dd`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -120,7 +120,7 @@ A) block the name "Little Haiti"; **B) A + block "East Flatbush" — chosen**; C
 Flatbush entirely — Claude recommended C, the user chose B. Flatbush and PLG stay. Don't
 re-raise C unless the user complains about Flatbush listings again.
 
-### 3. What changed (PR #6, branch `block-little-haiti-east-flatbush`)
+### 3. What changed (`d0bd0dd`, PR #6)
 - `config.EXCLUDED_AREAS`: `little haiti`, `east flatbush`, `e flatbush`, `e. flatbush`.
   Spellings from live data (CL cache + Ohana): 8× "East Flatbush", 1× "E Flatbush", 7×
   "Little Haiti"; the dotted form is a guess.
@@ -137,11 +137,14 @@ re-raise C unless the user complains about Flatbush listings again.
   whose description says "Crown Heights and East Flatbush". All 7 Craigslist hits in the
   ~6-week `cl_details` cache were genuinely East Flatbush. If the user wants it softened:
   strip `east flatbush` from the text before the region scan instead of vetoing — but that
-  leaks East Flatbush listings that also say "Flatbush" (1 of the 7).
+  leaks East Flatbush listings that also say "Flatbush" (1 of the 7). The user merged it
+  as-is, strict.
 
 ### 4. Not yet verified in production
-After the merge, on the first `hunt` run on the merge SHA: no new
-`private-room-in-little-haiti-*` URLs in `seen`, and "wrong area" rejections tick up slightly.
+The first `hunt` run on `d0bd0dd` (`38508106564`, 03:48Z, success) skipped **every** source on
+cadence, so it proves nothing. On the first run on `d0bd0dd` or later that actually runs Ohana
+(check the log, see open item #5): no new `private-room-in-little-haiti-*` URLs in `seen`, and
+"wrong area" rejections tick up slightly.
 Note the Craigslist `flatbush|"prospect lefferts gardens"` group still returns East Flatbush
 listings, and each costs a detail-page fetch (cached; 40/run cap) before being rejected —
 ~7 per 6 weeks, not worth a query change.
@@ -151,6 +154,9 @@ listings, and each costs a detail-page fetch (cached; 40/run cap) before being r
   repo with `find ~ -maxdepth 4 -type d -iname '*sublet*' -not -path '*/Library/*'`.
 - The local clone was 153 bot `state:` commits behind; with a clean tree, `git pull --ff-only`
   is safe.
+- Merged with `gh pr merge 6 --squash --delete-branch` when the user said "merge it", after
+  `gh pr checks 6` passed — it worked again in auto mode. This HANDOFF update went straight
+  to `main` at the user's request. Local clone: on `main`, clean, feature branch deleted.
 
 ---
 
