@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-10-13 — **v0.9.0**: **Little Haiti and East Flatbush blocked by name** via a new `EXCLUDED_AREAS` list in `config.py` — a mention rejects the listing even when an in-scope area is also named. The user picked this over dropping Flatbush; **Flatbush and PLG stay in scope**. PR #6, CI green, **squash-merged as `d0bd0dd`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-10-15 — **v0.10.0** (branch `feat/scam-filter`, **not merged yet**): **scam score for Craigslist posts** (`scam.py`, spec in `SCAM_FILTER.md`). Suspects are marked ⚠️ in the digest and likely scams moved to a 🚩 section; nothing is dropped by default. Craigslist only, by the user's decision. Full post bodies + attribute tags are now cached. Adds `check_listing.py` for checking one post by hand. See "Last session". Previous entry: 2026-10-13 — **v0.9.0**: **Little Haiti and East Flatbush blocked by name** via a new `EXCLUDED_AREAS` list in `config.py` — a mention rejects the listing even when an in-scope area is also named. The user picked this over dropping Flatbush; **Flatbush and PLG stay in scope**. PR #6, CI green, **squash-merged as `d0bd0dd`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -20,7 +20,10 @@ main.py                     → Orchestrator: one run per GH Actions tick.
 config.py                   → ALL prefs: budget, move-in window, REGIONS + neighborhoods,
                               SPAREROOM_AREAS, cadences, secrets-from-env.
 filter.py                   → HARD (budget, wrong-area incl. EXCLUDED_AREAS name blocks) + SOFT (duration/move-in/furnished
-                              tags) + SCAM filters. Whole-word neighborhood routing.
+                              tags) + SCAM filters + scam score (Craigslist only). Whole-word neighborhood routing.
+scam.py, scam_data.py       → Craigslist scam score (SCAM_FILTER.md): price vs median, template reuse
+                              across areas, wrong subway lines, contradicted tags, contact harvesting…
+check_listing.py            → Score one post by hand (CL URL, .md/.txt file, or stdin).
 db.py                       → SQLite dedup (`seen` table) + per-source last-run
                               (`source_runs` table). Committed back to repo by the workflow.
 models.py                   → Listing dataclass.
@@ -45,6 +48,7 @@ sources/ohana.py            → liveohana.ai public Bubble Data API (plain HTTP,
 .github/workflows/ci.yml    → PR + push-to-main checks: module imports, region-routing
                               tests, config integrity. Ignores state.db pushes so the
                               bot's ~96 daily state commits don't each trigger a run.
+test_scam.py                → 31 real posts (7 confirmed, 10 judged scams, 14 legit) + 23 guards. Run directly.
 test_regions.py             → 55 cases: routing, name blocks, rent caps. No pytest — run it directly.
                               RE-RUN AFTER ANY `REGIONS` EDIT (ordering is load-bearing).
 ```
@@ -97,7 +101,56 @@ value back**, so if the app password is ever lost it must be regenerated at
 
 ---
 
-## Last session (2026-10-13) — Little Haiti + East Flatbush blocked (`v0.9.0`)
+## Last session (2026-10-15) — Craigslist scam score (`v0.10.0`)
+
+**What the user asked for:** "I sometimes have a craigslist ad that's a spam or fraud. Can we get a
+filter for it … before the email has been sent?" They supplied `SCAM_FILTER.md`, a full spec
+written in a claude.ai chat (signals, points, thresholds, guards, evidence). No code for it
+existed. Mid-session they added: **"This filter needs to be applied only to craigslist."**
+
+### 1. What changed (branch `feat/scam-filter`)
+- `scam.py` implements the spec's signal table. Listing fields gained: `body`, `attrs`,
+  `category`, `scam_score`, `scam_reasons`.
+- `filter.filter_listings` scores Craigslist listings only (`scam.applies_to`), after the
+  classic `_is_scam` hard drop, which is unchanged and still reads only the first 300 chars.
+  Template families are computed over every CL post in the batch, before area filtering.
+- `notifier`: score ≥ 3 → "⚠️ verify (scam score N): reasons"; ≥ 5 → "🚩 Likely scams" section.
+- `sources/craigslist.py`:
+  - caches the full body (≤ 5,000 chars) and the attribute tags
+  - re-fetches pre-0.10.0 rows within the 40/run budget
+  - parses bedrooms from the current markup (the old selector matched nothing; bedrooms are left
+    blank for rooms & shares)
+  - warns when a batch of fresh pages has no tags
+- **Deviations from the spec, all disclosed in `SCAM_FILTER.md`:**
+  - Craigslist only, so the Listings Project −1 guard is gone.
+  - The subway rule is "most named lines don't stop there" (not "none"), with generous line sets.
+  - Checks judge a post by where it *says* it is (`located_area`), not by its routing.
+  - Areas one post names together count as one place in the template check.
+
+### 2. Verified
+- `test_scam.py` ✅ (7/7 confirmed, 10/10 judged, 14/14 legit, 23 guards); `test_regions.py` 55/55.
+  CI's import + config-integrity steps were run locally.
+- Dry run over the `state.db` CL cache: 136 in scope → 12 flagged / 5 likely (snippets only).
+  The posts still up were re-fetched (216 of 403 already gone): 142 → 22 / 10.
+- Digest HTML rendered locally (no email sent); `check_listing.py` tried on a live URL and on
+  pasted text.
+
+### 3. Not yet verified in production
+After merge, on the first run that actually runs Craigslist:
+- the filter log line gains `marked: N verify, M likely scam`
+- no warning `no attribute tags on any of N fresh pages`
+- stale cache rows refresh over the next ~11 runs
+
+### 4. Open threads
+- `state.db` (public repo) now holds up to 5,000 chars of each cached post instead of 300.
+  The posts are public on Craigslist, but they now persist in git history. Capping or
+  redacting is a one-line change in `parse_detail` if the user wants it.
+- Possible next step if scams still slip through: a free-tier LLM second opinion behind an
+  adapter. Offered as an option and declined for v1 (rules only).
+
+---
+
+## Previous session (2026-10-13) — Little Haiti + East Flatbush blocked (`v0.9.0`)
 
 **What the user asked for:** "I keep getting apartments from Little Haiti… I don't like that
 area", plus a list of every area being searched. (The session opened in a scratch folder;

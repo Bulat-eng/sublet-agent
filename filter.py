@@ -1,10 +1,11 @@
 """
 Filter sublet listings against user criteria.
 
-Three layers:
+Four layers:
   - HARD filters → reject (over budget, wrong area — incl. areas blocked by name)
   - SOFT filters → flag via tags but keep (duration/move-in unknown)
   - SCAM filters → reject (suspiciously cheap, suspicious text patterns)
+  - SCAM score   → mark but keep (scam.py, Craigslist only; dropped only past config.SCAM_DROP_SCORE)
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import logging
 from datetime import date
 
 import config
+import scam
 from models import Listing
 
 logger = logging.getLogger(__name__)
@@ -122,7 +124,14 @@ def _check_move_in(listing: Listing) -> str | None:
 def filter_listings(listings: list[Listing]) -> list[Listing]:
     """Apply all filters. Returns the listings that pass, with soft-filter tags added."""
     kept: list[Listing] = []
-    rejected = {"over_budget": 0, "wrong_area": 0, "scam": 0}
+    rejected = {"over_budget": 0, "wrong_area": 0, "scam": 0, "scam_score": 0}
+    marked = {"verify": 0, "likely": 0}
+
+    # Scam scoring is Craigslist-only (the other sources are moderated or
+    # structured). Templates are matched over ALL Craigslist posts, before area
+    # filtering: a copy reused for an out-of-scope area still gives away the
+    # in-scope ones.
+    families = scam.template_families([l for l in listings if scam.applies_to(l)])
 
     for l in listings:
         # HARD: not in target neighborhoods + assign region for routing
@@ -146,6 +155,19 @@ def filter_listings(listings: list[Listing]) -> list[Listing]:
             rejected["scam"] += 1
             continue
 
+        # SCAM score (Craigslist only) — marked in the digest; dropped only if SCAM_DROP_SCORE is set
+        reasons = scam.assess(l, hood, families) if scam.applies_to(l) else []
+        l.scam_score = sum(points for points, _ in reasons)
+        l.scam_reasons = [why for _, why in reasons]
+        if config.SCAM_DROP_SCORE is not None and l.scam_score >= config.SCAM_DROP_SCORE:
+            rejected["scam_score"] += 1
+            logger.info(f"  ↳ dropped, scam score {l.scam_score}: {l.title[:60]} — "
+                        f"{'; '.join(l.scam_reasons)}")
+            continue
+        lvl = scam.level(l.scam_score)
+        if lvl in marked:
+            marked[lvl] += 1
+
         # SOFT tags
         if l.duration_months is not None:
             if l.duration_months < config.SUBLET_DURATION_MIN_MONTHS:
@@ -165,6 +187,8 @@ def filter_listings(listings: list[Listing]) -> list[Listing]:
     logger.info(
         f"Filter: kept {len(kept)} / {len(listings)} "
         f"(rejected: {rejected['over_budget']} over budget, "
-        f"{rejected['wrong_area']} wrong area, {rejected['scam']} scam)"
+        f"{rejected['wrong_area']} wrong area, {rejected['scam']} scam"
+        + (f", {rejected['scam_score']} over scam score" if rejected["scam_score"] else "")
+        + f"; marked: {marked['verify']} verify, {marked['likely']} likely scam)"
     )
     return kept

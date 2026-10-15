@@ -14,7 +14,7 @@ Every 15 minutes, it:
 3. Scrapes **SpareRoom NYC** (~2,300+ live ads, plain HTML)
 4. Pulls recent **Reddit** posts from r/SublettingNYC, r/NYCapartments, r/AskNYC (filtered for sublet keywords)
 5. Pulls **Ohana** (liveohana.ai) NYC listings via its public Bubble Data API (plain HTTP)
-6. Filters by your budget, neighborhoods, and basic scam patterns
+6. Filters by your budget, neighborhoods, and basic scam patterns, and scores Craigslist posts for scam signals: suspects are marked ⚠️ in the digest, likely scams moved to a 🚩 section at the bottom (`SCAM_FILTER.md`)
 7. Deduplicates against the persistent `state.db` (committed back to the repo)
 8. Emails any new matches to you as a single region-grouped HTML digest (Gmail SMTP)
 
@@ -162,6 +162,9 @@ Playwright adds ~30s per run — still well within GitHub Actions free tier.
 | `config.py` | Your preferences (rent, neighborhoods, move-in window) |
 | `db.py` | SQLite dedup, committed back to repo as `state.db` |
 | `filter.py` | Hard/soft/scam filters |
+| `scam.py`, `scam_data.py` | Craigslist scam score — see `SCAM_FILTER.md` |
+| `check_listing.py` | Score one listing by hand: `.venv/bin/python check_listing.py <craigslist URL or file.md>` |
+| `test_scam.py`, `test_regions.py` | Regression tests (no pytest; run directly) |
 | `models.py` | `Listing` dataclass |
 | `notifier.py` | Email-only: region-grouped HTML digest via Gmail SMTP |
 | `sources/craigslist.py` | CL NYC + NJ sublets/rooms |
@@ -176,3 +179,4 @@ Playwright adds ~30s per run — still well within GitHub Actions free tier.
 ## Living docs
 
 - `99_troubleshooting.md` — append lessons as scrapers break and we patch them
+- `SCAM_FILTER.md` — what the scam score catches, the evidence behind each signal, and the reply checklist before paying anyone

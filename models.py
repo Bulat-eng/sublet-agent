@@ -22,10 +22,15 @@ class Listing:
     furnished: Optional[bool] = None
     bedrooms: Optional[int] = None
     body_snippet: str = ""                    # first ~300 chars
+    body: str = ""                            # full posting text, when the source has it (Craigslist)
+    attrs: dict = field(default_factory=dict) # Craigslist attribute tags: {param: [value, label]}
+    category: Optional[str] = None            # Craigslist search category: "sublets" | "rooms"
     posted_at: Optional[str] = None
     tags: list[str] = field(default_factory=list)
     region: Optional[str] = None              # routing key, set by filter.py (e.g. "manhattan")
     flagged: Optional[str] = None             # soft "filter not passed" reason; still notified, just marked
+    scam_score: int = 0                       # set by filter.py via scam.py; see SCAM_FILTER.md
+    scam_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)

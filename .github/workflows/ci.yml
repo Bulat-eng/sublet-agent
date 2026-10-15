@@ -39,7 +39,7 @@ jobs:
       - name: Import every module
         run: |
           python - <<'PY'
-          import config, filter, notifier, models, db, main
+          import config, filter, notifier, models, db, main, scam, scam_data, check_listing
           from sources import craigslist, listings_project, spareroom, reddit, ohana
           print("all modules import OK")
           PY
@@ -49,6 +49,10 @@ jobs:
       # since 0.8.0, which rent cap they're held to.
       - name: Region routing + rent cap tests
         run: python test_regions.py
+
+      # Real scams must stay flagged and real posts clean (SCAM_FILTER.md).
+      - name: Scam score tests
+        run: python test_scam.py
 
       - name: Config integrity
         run: |
@@ -87,6 +91,15 @@ jobs:
           # cap or listings between the two would never be fetched at all.
           assert config.CHEAPER_AREA_MAX_RENT <= config.MAX_RENT, (
               "CHEAPER_AREA_MAX_RENT must not exceed MAX_RENT")
+
+          # scam_data tables are keyed by REGIONS keywords; a typo'd key is
+          # silently never used (no subway / landmark check for that area).
+          import scam_data
+          bad = sorted(set(scam_data.AREA_LINES) - set(keywords))
+          assert not bad, f"scam_data.AREA_LINES keys not in REGIONS: {bad}"
+          bad = sorted({a for areas in scam_data.LANDMARKS.values() for a in areas} - set(keywords))
+          assert not bad, f"scam_data.LANDMARKS areas not in REGIONS: {bad}"
+          assert config.SCAM_FLAG_SCORE < config.SCAM_LIKELY_SCORE, "SCAM_FLAG_SCORE must be below SCAM_LIKELY_SCORE"
 
           print(f"config OK — {len(config.REGIONS)} regions, {len(keywords)} keywords, "
                 f"{len(config.EXCLUDED_AREAS)} excluded, "

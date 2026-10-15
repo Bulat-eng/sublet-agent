@@ -2,6 +2,54 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.10.0] — 2026-10-15
+
+### Added
+- **Scam score for Craigslist posts** (`scam.py`, tables in `scam_data.py`). It is a second
+  layer behind `filter._is_scam()`, built from the October 2026 bait wave: polite posts priced
+  just under budget, with none of the classic tells. Signals and points follow
+  `SCAM_FILTER.md`:
+  - price far below the area median
+  - the same text posted for other neighborhoods
+  - subway lines that don't stop there
+  - keys by mail
+  - a room bundled with an "assistant" job
+  - asking for your phone or email up front
+  - wheelchair / laundry tags that the text contradicts
+  - landmarks from another part of the city
+  - Zelle / Venmo / crypto
+  - garage / EV tags
+  - vacation-rental copy
+  - a room under $900
+- **Digest:**
+  - Score 3+ adds "⚠️ verify (scam score N): reasons" to the card, in its region.
+  - Score 5+ moves the listing to a **🚩 Likely scams** section at the bottom.
+  - Nothing is dropped unless `config.SCAM_DROP_SCORE` is set (default `None`).
+- `config.SCAM_FLAG_SCORE` (3), `SCAM_LIKELY_SCORE` (5), `SCAM_DROP_SCORE` (`None`).
+- `check_listing.py`: scores one post by hand, from a Craigslist URL, a `.md`/`.txt` file,
+  or stdin. It uses the same rules.
+- `test_scam.py`: 7 confirmed and 10 judged scams, 14 legit posts (all real Craigslist text,
+  contact details and street addresses redacted), and 23 guard checks. It runs in CI.
+- CI config integrity: `scam_data` tables must be keyed by `REGIONS` keywords.
+- `SCAM_FILTER.md`: what each signal catches, the evidence, and the reply checklist.
+
+### Changed
+- `sources/craigslist.py` keeps the **full posting text** (`body`, up to 5,000 chars;
+  previously only the first 300) and the **attribute tags** (`attrs`, keyed by each tag
+  link's search parameter).
+- Pre-0.10.0 cache rows are re-fetched within the existing 40-pages-per-run budget.
+- The "QR Code Link to This Post" boilerplate is stripped.
+- Bedrooms are read from the current housing-line markup (`span.attr.important`). The old
+  selector matched nothing, so 0 of 403 cached rows had bedrooms. The value is left blank
+  for rooms & shares posts.
+- The tag `is_furnished` now also counts as furnished.
+- The scraper's page parsing is split out as `parse_detail(html)`.
+- `Listing` gains `body`, `attrs`, `category`, `scam_score`, `scam_reasons`.
+
+### Scope (user decision)
+- Scam scoring applies to **Craigslist only**. The spec's Listings Project "−1 point" guard
+  was dropped with it.
+
 ## [0.9.0] — 2026-10-13
 
 ### Added
