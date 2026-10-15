@@ -15,6 +15,7 @@ import random
 import hashlib
 import logging
 from datetime import date, datetime, timedelta
+from urllib.parse import parse_qs, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -46,6 +47,15 @@ MAX_RESULTS_PER_SEARCH = 100
 # ~200 listings, so the first run after a cold cache backfills over a few runs
 # instead of blowing the workflow's 10-minute timeout.
 MAX_NEW_DETAILS_PER_RUN = 40
+
+# Full posting text kept for scam.py. Before 0.10.0 only the first 300 chars
+# were kept, and the scam wording usually sits further down (99_troubleshooting.md).
+MAX_BODY_CHARS = 5000
+_QR_BOILERPLATE = re.compile(r"^\s*QR Code Link to This Post\s*", re.IGNORECASE)
+
+# A batch of fresh pages with no attribute tags at all means CL changed its
+# markup — scam.py's tag signals (garage, EV charging, wheelchair, laundry) go blind.
+_MIN_PAGES_FOR_TAG_CHECK = 5
 
 
 def _headers() -> dict:
@@ -101,52 +111,88 @@ def _scrape_detail(url: str) -> dict:
         resp = requests.get(url, headers=_headers(), timeout=15)
         if resp.status_code != 200:
             return {}
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-        d: dict = {}
-
-        price_tag = soup.find("span", class_="price")
-        if price_tag:
-            try:
-                d["price"] = int(re.sub(r"[^\d]", "", price_tag.text))
-            except ValueError:
-                pass
-
-        for span in soup.find_all("span", class_="shared-line-bubble"):
-            txt = span.text.strip().lower()
-            if "br" in txt:
-                m = re.search(r"(\d+)br", txt)
-                if m:
-                    d["bedrooms"] = int(m.group(1))
-
-        body = soup.find("section", id="postingbody")
-        body_text = body.get_text(" ", strip=True) if body else ""
-        body_low = body_text.lower()
-
-        d["description"] = body_text[:300]
-        d["furnished"]   = any(w in body_low for w in [
-            "furnished", "furniture included", "fully furnished", "comes furnished",
-        ])
-
-        # Sublet duration — look for "N months" or "N month"
-        dur = re.search(r"(\d+)\s*[-–]?\s*month", body_low)
-        if dur:
-            d["duration_months"] = int(dur.group(1))
-
-        # Move-in/move-out from CL's housing_movein/housing_moveout spans
-        for cls, key in [("housing_movein_now", "move_in_date"), ("housing_moveout", "move_out_date")]:
-            el = soup.find("span", class_=cls)
-            if el:
-                d[key] = _parse_date_phrase(el.text.strip())
-
-        dt = soup.find("time", class_="date timeago")
-        if dt:
-            d["posted_at"] = dt.get("datetime", "")
-
-        return d
+        return parse_detail(resp.text)
     except Exception as exc:
         logger.warning(f"CL detail failed [{url}]: {exc}")
         return {}
+
+
+def parse_detail(html: str) -> dict:
+    """Extract sublet-relevant fields from a CL listing page's HTML."""
+    soup = BeautifulSoup(html, "html.parser")
+    d: dict = {}
+
+    price_tag = soup.find("span", class_="price")
+    if price_tag:
+        try:
+            d["price"] = int(re.sub(r"[^\d]", "", price_tag.text))
+        except ValueError:
+            pass
+
+    title_el = soup.find("span", id="titletextonly")
+    if title_el:
+        d["title"] = title_el.get_text(strip=True)
+
+    # Housing line ("1BR / 1Ba"): span.attr.important on the current layout,
+    # span.shared-line-bubble on the old one. In rooms & shares posters leave
+    # it at 0BR, so scam.py ignores it there.
+    for span in soup.select("span.attr.important, span.shared-line-bubble"):
+        m = re.search(r"(\d+)br", span.get_text(" ", strip=True).lower())
+        if m:
+            d["bedrooms"] = int(m.group(1))
+            break
+
+    d["attrs"] = _parse_attrs(soup)
+
+    crumbs = " ".join(a.get_text(" ", strip=True).lower() for a in soup.select("li.crumb a"))
+    if "rooms" in crumbs:
+        d["category"] = "rooms"
+    elif "sublets" in crumbs:
+        d["category"] = "sublets"
+
+    body = soup.find("section", id="postingbody")
+    body_text = body.get_text(" ", strip=True) if body else ""
+    body_text = _QR_BOILERPLATE.sub("", body_text)
+    body_low = body_text.lower()
+
+    d["description"] = body_text[:300]
+    d["body"]        = body_text[:MAX_BODY_CHARS]
+    d["furnished"]   = "is_furnished" in d["attrs"] or any(w in body_low for w in [
+        "furnished", "furniture included", "fully furnished", "comes furnished",
+    ])
+
+    # Sublet duration — look for "N months" or "N month"
+    dur = re.search(r"(\d+)\s*[-–]?\s*month", body_low)
+    if dur:
+        d["duration_months"] = int(dur.group(1))
+
+    # Move-in/move-out from CL's housing_movein/housing_moveout spans
+    for cls, key in [("housing_movein_now", "move_in_date"), ("housing_moveout", "move_out_date")]:
+        el = soup.find("span", class_=cls)
+        if el:
+            d[key] = _parse_date_phrase(el.text.strip())
+
+    dt = soup.find("time", class_="date timeago")
+    if dt:
+        d["posted_at"] = dt.get("datetime", "")
+
+    return d
+
+
+def _parse_attrs(soup: BeautifulSoup) -> dict[str, list[str]]:
+    """Attribute tags → {search param: [value, label]}, e.g. {"parking": ["2", "attached garage"]}.
+
+    Each tag is a link to a search for that attribute (".../search/...?cat=roo&parking=2"),
+    so the query parameter identifies the tag regardless of its wording or CSS class.
+    Checked against a live page 2026-10-14.
+    """
+    attrs: dict[str, list[str]] = {}
+    for a in soup.select("div.attrgroup a[href]"):
+        params = parse_qs(urlparse(a["href"]).query)
+        params.pop("cat", None)
+        for key, values in params.items():
+            attrs[key] = [values[0], a.get_text(" ", strip=True).lower()]
+    return attrs
 
 
 def _parse_date_phrase(s: str) -> str | None:
@@ -188,6 +234,7 @@ def fetch(region: str = "nyc") -> list[Listing]:
     site_url = CL_SITES.get(region, CL_SITES["nyc"])
 
     new_details = 0
+    fresh_bodies = fresh_with_tags = 0
 
     for query in groups:
         for cat_name, cat_code in CATEGORIES.items():
@@ -201,13 +248,25 @@ def fetch(region: str = "nyc") -> list[Listing]:
                 seen_urls.add(url)
 
                 detail = db.get_cl_detail(url)
-                if detail is None:
+                # Pre-0.10.0 cache rows hold a 300-char body and no tags: refresh
+                # them within the same per-run page budget, use them as-is until then.
+                stale = detail is not None and "attrs" not in detail
+                fetched = False
+                if detail is None or (stale and new_details < MAX_NEW_DETAILS_PER_RUN):
                     if new_details >= MAX_NEW_DETAILS_PER_RUN:
                         continue  # picked up on a later run
-                    detail = _scrape_detail(url)
+                    scraped = _scrape_detail(url)
                     new_details += 1
-                    if detail:
-                        db.put_cl_detail(url, detail)
+                    if scraped:
+                        db.put_cl_detail(url, scraped)
+                        detail, fetched = scraped, True
+                        if scraped.get("body"):
+                            fresh_bodies += 1
+                            fresh_with_tags += bool(scraped.get("attrs"))
+                    elif detail is None:
+                        detail, fetched = {}, True
+
+                if fetched:
                     price = detail.get("price") or entry.get("price")
                 else:
                     # Cached page may be stale; the search-page price is fresh
@@ -224,13 +283,22 @@ def fetch(region: str = "nyc") -> list[Listing]:
                     move_in_date=detail.get("move_in_date"),
                     move_out_date=detail.get("move_out_date"),
                     furnished=detail.get("furnished"),
-                    bedrooms=detail.get("bedrooms"),
+                    # rooms & shares posters leave the housing line at 0-1BR: meaningless
+                    bedrooms=detail.get("bedrooms") if cat_name != "rooms" else None,
                     body_snippet=detail.get("description", ""),
+                    body=detail.get("body", ""),
+                    attrs=detail.get("attrs", {}),
+                    category=cat_name,
                     posted_at=detail.get("posted_at"),
                 ))
 
             time.sleep(random.uniform(3.0, 6.0))
 
+    if fresh_bodies >= _MIN_PAGES_FOR_TAG_CHECK and not fresh_with_tags:
+        logger.warning(
+            f"[CL {region}] no attribute tags on any of {fresh_bodies} fresh pages — "
+            "CL markup changed? scam.py's tag signals are blind (see 99_troubleshooting.md)"
+        )
     logger.info(f"[CL {region}] total: {len(listings)} listings ({new_details} detail pages fetched)")
     return listings
 

@@ -13,6 +13,11 @@ CHEAPER_AREA_MAX_RENT = 1550     # lower hard cap for the neighborhoods in CHEAP
 MIN_RENT = 700                   # quality filter: scam-suspicious below this
 MAX_BEDROOMS = 2                 # 0=studio, 1=1BR, 2=2BR
 
+# Scam score (scam.py, SCAM_FILTER.md): points add up per listing.
+SCAM_FLAG_SCORE   = 3            # "⚠️ verify (scam score N): reasons" in its region
+SCAM_LIKELY_SCORE = 5            # moved to the "🚩 Likely scams" section at the bottom
+SCAM_DROP_SCORE   = None         # e.g. 8 to stop emailing the worst; None = never drop
+
 # Sublet-specific
 SUBLET_DURATION_MIN_MONTHS = 1
 SUBLET_DURATION_MAX_MONTHS = 12

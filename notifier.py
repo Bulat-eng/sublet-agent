@@ -125,6 +125,15 @@ def _listing_card(l: Listing) -> str:
             f'⚠️ filter not passed — {html_escape(l.flagged)}</p>'
         )
 
+    # Scam score (scam.py) — "verify" in its region, "likely" in the bottom section
+    if l.scam_score >= config.SCAM_FLAG_SCORE:
+        likely = l.scam_score >= config.SCAM_LIKELY_SCORE
+        label = "🚩 likely scam" if likely else "⚠️ verify"
+        flag_html += (
+            f'<p style="color:{"#B91C1C" if likely else "#B45309"};font-size:13px;margin:6px 0;">'
+            f'{label} (scam score {l.scam_score}): {html_escape("; ".join(l.scam_reasons))}</p>'
+        )
+
     # Description snippet
     desc = html_escape((l.body_snippet or "")[:280])
     desc_html = (
@@ -178,8 +187,11 @@ def _build_html(listings: list[Listing]) -> str:
     count = len(listings)
     now   = datetime.now().strftime("%B %d, %Y · %I:%M %p ET")
 
+    likely = [l for l in listings if l.scam_score >= config.SCAM_LIKELY_SCORE]
+    regular = [l for l in listings if l.scam_score < config.SCAM_LIKELY_SCORE]
+
     sections = []
-    for region_key, region_listings in _group_by_region(listings).items():
+    for region_key, region_listings in _group_by_region(regular).items():
         region = config.REGIONS.get(region_key, {"label": "Other", "emoji": "📌"})
         n = len(region_listings)
         header = (
@@ -189,6 +201,15 @@ def _build_html(listings: list[Listing]) -> str:
         )
         cards = "\n".join(_listing_card(l) for l in region_listings)
         sections.append(header + cards)
+
+    if likely:
+        sections.append(
+            '<h2 style="font-size:16px;font-weight:700;color:#B91C1C;margin:34px 0 4px;">'
+            f'🚩 Likely scams <span style="color:#9CA3AF;font-weight:500;">({len(likely)})</span></h2>'
+            '<p style="color:#6B7280;font-size:13px;margin:0 0 12px;">Several scam signals each '
+            '(SCAM_FILTER.md). Never send money or documents before a viewing.</p>'
+            + "\n".join(_listing_card(l) for l in likely)
+        )
 
     area_summary = " · ".join(r["label"] for r in config.REGIONS.values())
 

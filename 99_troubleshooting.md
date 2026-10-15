@@ -10,6 +10,7 @@ Append lessons here as scrapers break and we patch them. Each entry should be:
 | Source | Fragility | First sign of breakage |
 |---|---|---|
 | Craigslist | CSS class names occasionally change (e.g. `li.cl-static-search-result`) | All searches return 0 results; logs show 200 status but empty `out` |
+| Craigslist (tags) | `scam.py`'s garage / EV / wheelchair / laundry signals read the attribute-tag links (`div.attrgroup a`, `?parking=2`) | Warning `no attribute tags on any of N fresh pages`; 4 of the 7 confirmed scams then drop below the flag threshold |
 | Listings Project | URL pattern + card markup; their site redesigns ~yearly (broke 2026-07) | LP fetch returns 0 listings; check page HTML manually |
 | SpareRoom | Listing card CSS class evolves (`.listing-result` may rename) | Fewer listings than expected; manual page check shows ads exist |
 | Reddit (PRAW) | Reddit API changes are rare but they're aggressive about rate limits | `praw.exceptions.RedditAPIException`; 429 in logs |
@@ -58,6 +59,15 @@ git pull --rebase
 - **Root cause:**
 - **Fix:**
 - **How to detect earlier next time:**
+
+### 2026-10-15 — Craigslist scams in the digest; the scam filter only ever saw 300 characters
+- **What broke:** The October bait wave (fake sublets priced $755–$1,800) went straight into the digest. Over 20 were flagged by hand; every one that replied answered with a scam script.
+- **Symptom in logs:** *None* — `Filter: … N scam` held steady at ~41 (the same classic-tell posts re-rejected every run, since rejected posts never reach `seen`).
+- **Root cause:** `_scrape_detail` kept only `body_text[:300]`, and that cached snippet was all `_is_scam()` ever read; the opening ~25 chars were the "QR Code Link to This Post" boilerplate. The bait had no classic tells anyway. Two quieter bugs turned up on the way:
+  1. **Bedrooms never parsed:** the `span.shared-line-bubble` selector matched nothing on the current layout (0 of 403 cached rows had bedrooms), so Craigslist cards never got the below-median badge. The housing line is now `span.attr.important`.
+  2. **Routing follows commute mentions:** `_assign_region` takes the first REGIONS keyword anywhere, Manhattan first, so "25 minutes to reach the LES" routes a Park Slope room to LES, and "access to downtown Brooklyn" routes a Bushwick room in. This is unchanged (it's the filter's long-standing behavior), but `scam.located_area()` works around it for scoring.
+- **Fix:** v0.10.0 — full bodies + attribute tags cached; `scam.py` scores Craigslist posts and the digest marks them (`SCAM_FILTER.md`). The classic `_is_scam()` still reads only the first 300 characters, on purpose: legit sublets often say "I'll be out of the country", and over full bodies that hard rule would drop them.
+- **How to detect earlier next time:** when a scraper truncates text, grep the code for slices like `[:300]` before trusting any text rule built on top of it. For scams specifically: `.venv/bin/python check_listing.py <url>` on the post that got through, then add it to `test_scam.py`.
 
 ### 2026-10-13 — "Little Haiti" listings arriving though it was never a search area
 - **What broke:** The user kept getting Ohana rooms titled "Private Room in Little Haiti" (6 emailed 2026-09-14 → 2026-10-13 ET) and doesn't want that area.
