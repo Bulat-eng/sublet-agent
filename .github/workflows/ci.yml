@@ -54,6 +54,10 @@ jobs:
       - name: Scam score tests
         run: python test_scam.py
 
+      # A price the Reddit parser misses skips the rent cap entirely.
+      - name: Reddit price parsing tests
+        run: python test_reddit.py
+
       - name: Config integrity
         run: |
           python - <<'PY'

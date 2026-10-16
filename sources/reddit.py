@@ -41,12 +41,24 @@ def _make_id(entry_id: str) -> str:
     return f"rd_{abs(hash(entry_id)) % 10**10}"
 
 
+# "$4k" / "$3.5k" shorthand is tried first: the plain form needs 3+ digits, so
+# without it "$4k/month" parsed as no price and skipped the budget filter
+# (99_troubleshooting.md, 2026-10-15). "\b" after the k keeps "$2 kitchen" out.
+_PRICE_RE = re.compile(
+    r"\$\s*(?:(\d{1,2}(?:\.\d{1,2})?)\s*k\b|(\d[\d,]{2,5}))",
+    re.IGNORECASE,
+)
+
+
 def _parse_price(text: str) -> int | None:
-    m = re.search(r"\$\s*(\d[\d,]{2,5})\s*(?:/?\s*mo|per\s+month|monthly)?", text, re.IGNORECASE)
+    m = _PRICE_RE.search(text)
     if not m:
         return None
+    thousands, plain = m.groups()
     try:
-        return int(m.group(1).replace(",", ""))
+        if thousands:
+            return round(float(thousands) * 1000)
+        return int(plain.replace(",", ""))
     except ValueError:
         return None
 
