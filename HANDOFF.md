@@ -2,7 +2,7 @@
 
 Live and running on **GitHub Actions** (free). This doc covers what it does, how it's wired, what changed most recently, and the open threads.
 
-_Last updated: 2026-10-15 — **v0.10.0**: **scam score for Craigslist posts** (`scam.py`, spec in `SCAM_FILTER.md`). Suspects are marked ⚠️ in the digest and likely scams moved to a 🚩 section; nothing is dropped by default. Craigslist only, by the user's decision. Full post bodies + attribute tags are now cached. Adds `check_listing.py` for checking one post by hand. PR #7, CI green, **squash-merged as `cc47949`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-13 — **v0.9.0**: **Little Haiti and East Flatbush blocked by name** via a new `EXCLUDED_AREAS` list in `config.py` — a mention rejects the listing even when an in-scope area is also named. The user picked this over dropping Flatbush; **Flatbush and PLG stay in scope**. PR #6, CI green, **squash-merged as `d0bd0dd`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
+_Last updated: 2026-10-15 — **v0.10.1**: **Reddit "$4k" prices fixed.** A $4,000/mo Fort Greene sublet was emailed because `sources/reddit.py` read `$4k/month` as no price, and the rent cap only applies to a known price. The parser now reads `$4k` / `$3.5k` / `$1.8K`; new `test_reddit.py` runs in CI. PR #8, CI green, **squash-merged as `680a377`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-15 — **v0.10.0**: **scam score for Craigslist posts** (`scam.py`, spec in `SCAM_FILTER.md`). Suspects are marked ⚠️ in the digest and likely scams moved to a 🚩 section; nothing is dropped by default. Craigslist only, by the user's decision. Full post bodies + attribute tags are now cached. Adds `check_listing.py` for checking one post by hand. PR #7, CI green, **squash-merged as `cc47949`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-13 — **v0.9.0**: **Little Haiti and East Flatbush blocked by name** via a new `EXCLUDED_AREAS` list in `config.py` — a mention rejects the listing even when an in-scope area is also named. The user picked this over dropping Flatbush; **Flatbush and PLG stay in scope**. PR #6, CI green, **squash-merged as `d0bd0dd`** — not yet seen in a production run (see "Last session"). Previous entry: 2026-10-07 — **v0.8.2**: **Bed-Stuy removed** at the user's request (all five spellings, its Craigslist query term, and the SpareRoom `"Bedford Stuyvesant"` search fallback; 62 → 61 neighborhoods). PR #5, CI green, **squash-merged as `4ebe330`** — not yet seen in a production run (see "Last session"). Listings that also name an in-scope neighbor (e.g. "Clinton Hill / Bed-Stuy border") still get through, by choice — open item #15. The user **considered and then explicitly kept Clinton Hill**. Previous entry: 2026-10-07 — **v0.8.1** (cheaper-area cap $1,550, open move-in window, Craigslist under-fetching fix; PR #4). Previous entry: 2026-09-25 — **v0.8.0**: **two-tier rent cap** ($1,650 in Bed-Stuy, Crown Heights, Flatbush, PLG, Greenwood Heights; $1,800 everywhere else) and **Ditmas Park, Prospect Park South and Windsor Terrace removed** (65 → 62 neighborhoods). PR #3, squash-merged by the user as `5d36094`, **verified in production** (run `36095510616`) — see "Last session" below. New open items #13 (Craigslist search strings may be under-fetching) and #14 (move-in window ends 2026-09-30). Previous entry: 2026-08-26 — Sunset Park removed (`v0.7.2`, PR #2, `c7fb856`; see CHANGELOG and open item #12). Previous entry: 2026-08-21 — **coverage session**: the search area doubled (30 → **66 neighborhoods**, 4 → **6 regions**), the Bed-Stuy SpareRoom gap was closed, and **CI was added** (`test_regions.py` + config integrity, green on every PR). Released as `v0.7.0` + `v0.7.1`, PR #1, squash-merged `e40b438`. **The cron is FIXED** — `schedule` now accounts for 25 of the last 40 runs (open item #1 closed); the Mac-side pinger is therefore removable (item #10). The local repo also **moved to `~/Developer/sublet-agent`** (macOS TCC blocks `~/Documents`). Previous entry: 2026-08-20 — **outage + migration session**: the agent went silent 2026-08-15 (GitHub Actions free minutes exhausted, not a code bug). Repo was migrated to a **new public repo** with rewritten history, Gmail credentials were regenerated, and email delivery is verified working. (At the time, the `schedule` trigger had never fired on the new repo — **since resolved, see item #1**.) Previous entry: 2026-08-16 — diagnostic session only, **no code changes**: traced why Ohana digest prices don't match the prices on the listing pages. Found a real bug in `sources/ohana.py` (left unfixed at the user's request — see "Last session" below and open item #8). Last **code** change was still 2026-07-24 (CHANGELOG `[0.6.0]`: lowered budget to $1,800 + removed New Jersey), released as `v0.6.0`, PR #13, merge `2dda848`._
 
 ---
 
@@ -50,6 +50,7 @@ sources/ohana.py            → liveohana.ai public Bubble Data API (plain HTTP,
                               bot's ~96 daily state commits don't each trigger a run.
 test_scam.py                → 31 real posts (7 confirmed, 10 judged scams, 14 legit) + 23 guards. Run directly.
 test_regions.py             → 55 cases: routing, name blocks, rent caps. No pytest — run it directly.
+test_reddit.py              → Reddit price parsing ($4k shorthand) + rent-cap check. Run directly.
                               RE-RUN AFTER ANY `REGIONS` EDIT (ordering is load-bearing).
 ```
 
@@ -101,7 +102,52 @@ value back**, so if the app password is ever lost it must be regenerated at
 
 ---
 
-## Last session (2026-10-15) — Craigslist scam score (`v0.10.0`)
+## Last session (2026-10-15, evening) — Reddit "$4k" price fix (`v0.10.1`)
+
+**What the user asked:** "How did this listing get in the email chain?" — a
+[r/NYCapartments post](https://www.reddit.com/r/NYCapartments/comments/1x6k4zw/sublet_1br1ba_in_fort_greene_steps_from_park_oct/)
+for a 1BR in Fort Greene at **$4k/month**, well over the $1,800 cap. Then: fix it, add a test,
+log it in `99_troubleshooting.md`, open a PR, merge.
+
+### 1. Diagnosis
+- The local `state.db` was stale (CI commits state); the copy on `origin/main` showed
+  `rd_1x6k4zw`, source `reddit_NYCapartments`, seen by the **22:33:20 UTC** run.
+- Re-ran the post through `sources/reddit.py` + `filter.filter_listings` locally: the
+  `sublet` keyword matched, Fort Greene routed to `central_brooklyn`, and **price = `None`**.
+- Cause: `_parse_price` required 3+ digits after `$` (`\d[\d,]{2,5}`), so `$4k` didn't match.
+  `filter.py` only applies the rent cap when `price is not None`, so the post passed.
+
+### 2. What changed (`680a377`, PR #8)
+- `sources/reddit.py`: `_PRICE_RE` tries `$4k` / `$3.5k` / `$1.8K` (×1000) first, then the
+  plain `$1,500` form. `\b` after the `k` keeps "$2 kitchen" out.
+- `test_reddit.py` (new, no pytest): 9 parsing cases plus a check that the real post is now
+  rejected by the cap. Added as a step in `.github/workflows/ci.yml`.
+- `99_troubleshooting.md` entry and `CHANGELOG.md` `[0.10.1]`.
+
+### 3. Verified
+- `test_reddit.py` 10/10, `test_regions.py` 55/55, `test_scam.py` all pass; PR #8 CI green.
+
+### 4. Not yet verified in production
+- No production run has hit a `$Nk` post since the merge. When one does, it should be
+  rejected (`over budget` count in the filter log line) rather than emailed.
+- The Fort Greene post is already in `seen`, so it won't be re-sent either way.
+
+### 5. Open threads
+- New open item #16: other price spellings ("4 grand", "4000 dollars") still read as no price
+  and skip the cap. Listings Project and SpareRoom parsers don't handle `k` either, but they
+  read structured price fields.
+
+### 6. Workflow notes
+- The session again started in a scratch folder; moved to `~/Developer/sublet-agent`.
+- Local `main` lags `origin/main` by the bot's state commits — branch from `origin/main`
+  (`git switch -c <branch> origin/main`) and read state with `git show origin/main:state.db`.
+- Running the tests with `python -I` breaks the project imports; run them plainly, as CI does.
+- Merged with `gh pr merge 8 --squash --delete-branch` on the user's "Merge PR 8 into main".
+  This HANDOFF update went straight to `main` at the user's request ("do a handoff").
+
+---
+
+## Previous session (2026-10-15) — Craigslist scam score (`v0.10.0`)
 
 **What the user asked for:** "I sometimes have a craigslist ad that's a spam or fraud. Can we get a
 filter for it … before the email has been sent?" They supplied `SCAM_FILTER.md`, a full spec
@@ -580,6 +626,11 @@ Two user-preference changes (the full v0.5.0 coverage work remains in CHANGELOG 
     match would close it but also drop genuine border listings. **Not implemented — ask first,
     and only if the user complains about Bed-Stuy listings still arriving.** Since v0.9.0 the
     mechanism exists: put the five spellings in `EXCLUDED_AREAS`.
+16. **Unparsed prices skip the rent cap (opened 2026-10-15).** `filter.py` applies the cap only
+    when `price is not None`, so any price a parser can't read lets an over-budget listing
+    through. v0.10.1 fixed Reddit's `$4k` form; "4 grand", "4000 dollars" etc. still miss.
+    Options if it recurs: more parser patterns, or flag (not drop) Reddit posts with no price.
+    **Not implemented — ask first.**
 
 ---
 
