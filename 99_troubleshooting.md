@@ -257,3 +257,21 @@ re-run it after any change to `REGIONS`.
 Related whole-word gotchas already handled by `_hood_regex`: `les` must not match
 "stainless"/"wireless", `lic` must not match "police". Add new short aliases with
 care. Unfixable by regex: `murray hill` matches **Murray Hill, Queens** too.
+
+## Reddit: "$4k/month" read as no price, skipped the rent cap (2026-10-15)
+
+**What broke:** a $4,000/mo Fort Greene sublet on r/NYCapartments
+(post `1x6k4zw`) landed in the digest despite `MAX_RENT = 1800`. Its only price
+was written `$4k/month`. `sources/reddit.py`'s `_parse_price` required 3+ digits
+after the `$`, so it returned `None` — and `filter.py` only applies the rent cap
+when `price is not None`. Unknown price = budget check skipped.
+
+**Fix:** `_parse_price` now reads `$4k`, `$3.5k`, `$1.8K` (×1000) before falling
+back to the plain `$1,500` form. `\b` after the `k` keeps "$2 kitchen" out.
+Regression cases in `test_reddit.py` (run in CI).
+
+**How to detect it next time:** a digest card with no price whose title/body
+clearly names one. Reddit is free text, so any new price spelling ("4 grand",
+"4000 dollars", "€") will fail the same silent way. The other sources' parsers
+(`listings_project.py`, `spareroom.py`) don't handle `k` either, but they read
+structured price fields, so the risk there is lower.

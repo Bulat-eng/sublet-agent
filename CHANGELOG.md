@@ -2,6 +2,18 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.10.1] — 2026-10-15
+
+### Fixed
+- **Reddit: "$4k/month" prices skipped the rent cap.** `sources/reddit.py`'s `_parse_price`
+  needed 3+ digits after the `$`, so `$4k` parsed as no price, and `filter.py` only applies
+  the cap to a known price. A $4,000 Fort Greene sublet (r/NYCapartments `1x6k4zw`) was
+  emailed. The parser now reads `$4k`, `$3.5k` and `$1.8K` before the plain `$1,500` form.
+
+### Added
+- `test_reddit.py`: price-parsing regression cases plus a rent-cap check on the real post.
+  Runs in CI.
+
 ## [0.10.0] — 2026-10-15
 
 ### Added
