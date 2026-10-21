@@ -14,7 +14,7 @@ Every 15 minutes, it:
 3. Scrapes **SpareRoom NYC** (~2,300+ live ads, plain HTML)
 4. Pulls recent **Reddit** posts from r/SublettingNYC, r/NYCapartments, r/AskNYC (filtered for sublet keywords)
 5. Pulls **Ohana** (liveohana.ai) NYC listings via its public Bubble Data API (plain HTTP)
-6. Filters by your budget, neighborhoods, and basic scam patterns, and scores Craigslist posts for scam signals: suspects are marked ⚠️ in the digest, likely scams moved to a 🚩 section at the bottom (`SCAM_FILTER.md`)
+6. Filters by your budget, neighborhoods, and basic scam patterns, and scores Craigslist posts for scam signals: anything the scam score flags (3+) is dropped and never emailed (`SCAM_FILTER.md`)
 7. Deduplicates against the persistent `state.db` (committed back to the repo)
 8. Emails any new matches to you as a single region-grouped HTML digest (Gmail SMTP)
 

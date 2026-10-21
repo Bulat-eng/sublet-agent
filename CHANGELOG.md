@@ -2,6 +2,19 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.11.0] — 2026-10-20
+
+### Changed
+- **Craigslist posts the scam score flags are no longer emailed.** `config.SCAM_DROP_SCORE`
+  went from `None` to `SCAM_FLAG_SCORE` (3), so `filter.py` drops any post scoring 3+ and logs
+  it ("dropped, scam score N: title — reasons") instead of marking it "⚠️ verify" or moving it
+  to "🚩 Likely scams". Those digest marks now only show if `SCAM_DROP_SCORE` is raised.
+- `check_listing.py` says when the agent would drop a post.
+
+### Added
+- `test_scam.py`: two guards through `filter_listings()`. A flagged Craigslist post is
+  dropped, and the same post without the scam line is kept.
+
 ## [0.10.1] — 2026-10-15
 
 ### Fixed

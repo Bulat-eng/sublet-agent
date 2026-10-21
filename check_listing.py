@@ -104,6 +104,8 @@ def check(l: Listing) -> int:
           f"(verify ≥ {config.SCAM_FLAG_SCORE}, likely ≥ {config.SCAM_LIKELY_SCORE})")
     for points, why in reasons:
         print(f"   +{points}  {why}")
+    if config.SCAM_DROP_SCORE is not None and score >= config.SCAM_DROP_SCORE:
+        print(f"\n   The agent would not email this one (drops at scam score {config.SCAM_DROP_SCORE}).")
 
     classic = _SCAM_RE.search(text)
     if classic:

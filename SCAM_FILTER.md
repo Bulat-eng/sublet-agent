@@ -53,10 +53,15 @@ up; the reasons are printed in the digest next to the listing.
 | Vacation-rental copy | 1 | Airbnb text reposted as a lease | "sleeps another 2", "stocked with milk, coffee…" |
 | A room under $900 in Manhattan / North / Central Brooklyn | 1 | Unusually cheap, worth a second look | South Slope room at $755 |
 
-**Thresholds** (`config.py`): **3+** marks the listing "⚠️ verify (scam score N): reasons" in
-its region; **5+** moves it to a **🚩 Likely scams** section at the bottom of the digest;
-`SCAM_DROP_SCORE` (default `None`) would stop emailing it entirely. Nothing is dropped by
-default, so a false positive can never hide a real listing.
+**Thresholds** (`config.py`): since **v0.11.0**, **3+** (`SCAM_DROP_SCORE`, set to
+`SCAM_FLAG_SCORE`) means the listing is **not emailed at all**. Each drop is logged with its
+score and reasons in the Actions run log. The cost: a false positive now hides a real listing.
+`check_listing.py` says when a post would be dropped.
+
+Raise `SCAM_DROP_SCORE` and the marks come back for anything scored below it: **3+** marks
+the listing "⚠️ verify (scam score N): reasons" in its region, and **5+** moves it to a
+**🚩 Likely scams** section at the bottom of the digest. `None` drops nothing (the v0.10.0
+behaviour).
 
 **Guards against false alarms**
 - The price check only compares **whole apartments**. A room is never measured against a 1BR
@@ -82,7 +87,7 @@ default, so a false positive can never hide a real listing.
 ## Results
 
 - `test_scam.py`: **7/7 confirmed and 10/10 judged scams flagged; 14/14 real legit posts clean**,
-  plus 23 guard checks. The legit set includes a room in a rent-stabilized building, five
+  plus 25 guard checks. The legit set includes a room in a rent-stabilized building, five
   short-stay sublets, a nightly rental paid by Zelle/Venmo, a lister's warning about a copycat
   of their own ad, and the Greenpoint "30 minutes to Union Square" room. All are real
   Craigslist posts, with contact details and street addresses redacted.
@@ -149,5 +154,6 @@ up on whoownswhat.justfix.org or HPD (does it exist, how many units, who owns it
   `scam_data.AREA_LINES`. The sets are meant to be generous.
 - **A scam got through:** add it to `test_scam.py` first (CONFIRMED or JUDGED), then adjust a
   weight or regex in `scam.py` until it's flagged and every LEGIT case stays clean.
-- **Ready to stop seeing the worst ones:** set `SCAM_DROP_SCORE` (e.g. 8). Drops are logged with
-  their reasons in the Actions run log.
+- **A real listing went missing:** search the Actions run log for "dropped, scam score". To see
+  suspects marked in the digest instead of dropped, raise `SCAM_DROP_SCORE` (5 keeps the
+  "⚠️ verify" ones, `None` keeps everything).

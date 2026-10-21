@@ -5,9 +5,10 @@ filter._is_scam() hard-drops the classic tells ("wire money", "god bless", rent
 under MIN_RENT). The October 2026 Craigslist bait wave had none of them: polite,
 specific-sounding posts priced just under budget. This module scores what gets
 past it. Each signal adds points; filter.py stores the total and the reasons on
-the listing, and the digest marks it (config.SCAM_FLAG_SCORE) or moves it to a
-"Likely scams" section (config.SCAM_LIKELY_SCORE). Nothing is dropped unless
-config.SCAM_DROP_SCORE is set.
+the listing and drops it at config.SCAM_DROP_SCORE (by default the flag score,
+so anything flagged is never emailed). Below that, the digest marks it
+(config.SCAM_FLAG_SCORE) or moves it to a "Likely scams" section
+(config.SCAM_LIKELY_SCORE).
 
 Craigslist only (applies_to): the other sources are moderated or structured,
 and the October wave was all Craigslist.
