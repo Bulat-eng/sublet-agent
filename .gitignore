@@ -7,3 +7,6 @@ __pycache__/
 fb_cookies.json
 *.log
 .pytest_cache/
+
+# Session handoff notes — kept local only, never pushed (public repo)
+HANDOFF.md
