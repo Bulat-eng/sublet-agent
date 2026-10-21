@@ -624,6 +624,15 @@ GUARDS = [
                                       title="Studio in East Village, Zelle only",
                                       body_snippet="Keys will be mailed to you. Studio in East Village.")])[0].scam_score,
      0, "non-Craigslist sources are never scored"),
+    # Flagged posts are not emailed
+    (lambda: filter_listings([_listing("Furnished room in Fort Greene", "Sunny furnished room in a quiet "
+                                       "apartment. I travel for work, so the keys will be mailed to you.",
+                                       price=1200)]),
+     [], "a flagged Craigslist post (score 3) is dropped, not emailed (SCAM_DROP_SCORE)"),
+    (lambda: len(filter_listings([_listing("Furnished room in Fort Greene", "Sunny furnished room in a "
+                                           "quiet apartment. Happy to show it any evening this week.",
+                                           price=1200)])),
+     1, "the same post without the keys line is still emailed"),
 ]
 
 

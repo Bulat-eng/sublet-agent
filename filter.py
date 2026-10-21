@@ -5,7 +5,7 @@ Four layers:
   - HARD filters → reject (over budget, wrong area — incl. areas blocked by name)
   - SOFT filters → flag via tags but keep (duration/move-in unknown)
   - SCAM filters → reject (suspiciously cheap, suspicious text patterns)
-  - SCAM score   → mark but keep (scam.py, Craigslist only; dropped only past config.SCAM_DROP_SCORE)
+  - SCAM score   → reject at config.SCAM_DROP_SCORE, mark below it (scam.py, Craigslist only)
 """
 
 from __future__ import annotations
@@ -155,7 +155,7 @@ def filter_listings(listings: list[Listing]) -> list[Listing]:
             rejected["scam"] += 1
             continue
 
-        # SCAM score (Craigslist only) — marked in the digest; dropped only if SCAM_DROP_SCORE is set
+        # SCAM score (Craigslist only) — dropped at SCAM_DROP_SCORE, marked in the digest below it
         reasons = scam.assess(l, hood, families) if scam.applies_to(l) else []
         l.scam_score = sum(points for points, _ in reasons)
         l.scam_reasons = [why for _, why in reasons]
