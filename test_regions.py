@@ -50,6 +50,15 @@ CASES = [
     ("Sunny room in E Flatbush, utilities included", None, "abbreviation seen live"),
     ("Crown Heights / East Flatbush border, big room", None,
      "by choice: unlike the Bed-Stuy leak, a blocked name wins over an in-scope neighbor"),
+    ("Crown Heights sublet", None, "blocked 2026-10-22 (user request)"),
+    ("Master bedroom for rent in a quiet, friendly Crown Heights 3Br/2Ba townhouse ... "
+     "steps away from the B44 and B43 buses (Straight shot to Williamsburg!)", None,
+     "real CL post: why it's blocked, not just dropped — the commute mention "
+     "would have routed it North Brooklyn"),
+    ("We have a room available in a 3 bedroom apartment on the Prospect Heights / "
+     "Crown Heights border", None,
+     "real CL post, dropped by choice: the block beats Prospect Heights too"),
+    ("Room in Crown Hts, near Franklin Ave", None, "abbreviation"),
 
     # ── ORDER-DEPENDENT: 'Flatbush Ave' is a cross street, not the neighborhood ──
     ("Park Slope 1BR steps from Flatbush Ave", "central_brooklyn",
@@ -62,9 +71,11 @@ CASES = [
      "the real Flatbush still routes South (cf. the 2026-07-14 missed listing)"),
     ("Room in Flatbush - Ditmas Park, near the Q", "south_brooklyn",
      "KNOWN LEAK, by choice: Ditmas Park sits inside Flatbush (see config note)"),
-    ("Crown Heights sublet", "south_brooklyn", ""),
     ("Prospect Lefferts Gardens room near the Q", "south_brooklyn",
-     "PLG stays in scope — only the Little Haiti / East Flatbush names are blocked"),
+     "PLG stays in scope — only the Little Haiti / East Flatbush / Crown Heights names "
+     "are blocked"),
+    ("Prospect Heights 1BR near Vanderbilt Ave", "central_brooklyn",
+     "Prospect Heights stays in scope when it doesn't also name Crown Heights"),
 
     # ── Central Brooklyn ──
     ("Clinton Hill room, Bed-Stuy border", "central_brooklyn",
@@ -99,17 +110,19 @@ CASES = [
 # Caps as of 2026-10-07: $1,550 in config.CHEAPER_AREAS, $1,800 everywhere else.
 CAP_CASES = [
     # ── Cheaper areas: $1,550 ──
-    ("Crown Heights brownstone room, sunny and quiet", 1550, True, "exactly at the lower cap"),
-    ("Crown Heights brownstone room, sunny and quiet", 1551, False, "$1 over the lower cap"),
+    ("Flatbush brownstone room, sunny and quiet", 1550, True, "exactly at the lower cap"),
+    ("Flatbush brownstone room, sunny and quiet", 1551, False, "$1 over the lower cap"),
     ("Room in Prospect-Lefferts Gardens, 2 blocks to the Q", 1700, False,
      "every PLG spelling must carry the lower cap"),
-    ("Crown Heights sublet near the 2/3 train", 1600, False,
+    ("Greenwood Heights sublet near the R train", 1600, False,
      "passed under the old $1,650 cap, must not now"),
     ("Greenwood Heights room by the park", 1700, False, ""),
     ("Room in Flatbush - Ditmas Park, near the Q", 1700, False,
      "the Ditmas Park leak lands on Flatbush, so it still gets the lower cap"),
     ("Private Room in Little Haiti This 83-square-foot room on New York City's Flatbush",
      1310, False, "real $1,310 Ohana room: under the cap, but blocked by name"),
+    ("Crown Heights room on Empire Blvd", 1444, False,
+     "real $1,444 Ohana room (emailed 2026-10-05): under the cap, but blocked by name"),
 
     # ── Everywhere else: $1,800 ──
     ("Williamsburg room near the Bedford L", 1800, True, "exactly at the higher cap"),
@@ -121,7 +134,7 @@ CAP_CASES = [
     ("East Village studio, 3 month sublet", 1800, True, ""),
 
     # ── Unknown price is never rejected on budget ──
-    ("Crown Heights room, price on request", None, True, ""),
+    ("Prospect Lefferts Gardens room, price on request", None, True, ""),
 ]
 
 

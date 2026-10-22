@@ -613,8 +613,8 @@ GUARDS = [
     (lambda: _score(_listing("Studio in East Village", "20 minutes by train to Central Park."))[0], 0,
      "a commute to a landmark is fine"),
     # Tags
-    (lambda: _score(_listing("Room in Crown Heights", attrs={"parking": ["2", "attached garage"],
-                                                              "ev_charging": ["1", "ev charging"]}))[0],
+    (lambda: _score(_listing("Room in Flatbush", attrs={"parking": ["2", "attached garage"],
+                                                         "ev_charging": ["1", "ev charging"]}))[0],
      0, "South Brooklyn is exempt from the garage/EV signal"),
     (lambda: _score(_listing("Room in Fort Greene", attrs={"parking": ["2", "attached garage"],
                                                             "ev_charging": ["1", "ev charging"]}))[0],

@@ -91,7 +91,6 @@ AREA_LINES: dict[str, set[str]] = {
     "greenwood heights": set("RFGDN"),
     "prospect lefferts gardens": set("BQ25S"),
     "prospect-lefferts gardens": set("BQ25S"),
-    "crown heights":     set("2345ACSBQ"),
     "flatbush":          set("BQ25S"),
 }
 
@@ -146,11 +145,11 @@ LANDMARKS: dict[str, list[str]] = {
     # Brooklyn posts stretch "close to" further: most of Central Brooklyn counts
     "prospect park": ["park slope", "south slope", "prospect heights", "gowanus",
                       "prospect lefferts gardens", "prospect-lefferts gardens",
-                      "flatbush", "crown heights", "greenwood heights", "fort greene",
+                      "flatbush", "greenwood heights", "fort greene",
                       "clinton hill", "boerum hill", "carroll gardens", "downtown brooklyn"],
-    "brooklyn museum": ["prospect heights", "crown heights", "park slope",
+    "brooklyn museum": ["prospect heights", "park slope",
                         "prospect lefferts gardens", "prospect-lefferts gardens"],
-    "botanic garden": ["prospect heights", "crown heights", "park slope",
+    "botanic garden": ["prospect heights", "park slope",
                        "prospect lefferts gardens", "prospect-lefferts gardens", "flatbush"],
 }
 
@@ -162,7 +161,7 @@ OTHER_AREAS = [
     "bedford stuyvesant", "harlem", "east harlem", "upper east side", "upper west side",
     "astoria", "long island city", "sunnyside", "ridgewood", "sunset park",
     "windsor terrace", "ditmas park", "red hook", "bay ridge", "kensington",
-    "east flatbush", "little haiti", "washington heights", "inwood", "jersey city",
+    "east flatbush", "little haiti", "crown heights", "washington heights", "inwood", "jersey city",
     "hoboken", "forest hills", "jackson heights", "flushing",
 ]
 
@@ -188,6 +187,7 @@ OTHER_AREA_LINES: dict[str, set[str]] = {
     "kensington": set("FG"),
     "east flatbush": set("2345"),
     "little haiti": set("25BQ"),
+    "crown heights": set("2345ACSBQ"),
     "washington heights": set("1AC"),
     "inwood": set("1A"),
     "forest hills": set("EFMR"),
@@ -208,6 +208,6 @@ SAME_PLACE = {
 AREA_ALIASES = {
     **SAME_PLACE,
     "bed stuy": "bed-stuy", "bedstuy": "bed-stuy", "bedford-stuyvesant": "bed-stuy",
-    "bedford stuyvesant": "bed-stuy",
+    "bedford stuyvesant": "bed-stuy", "crown hts": "crown heights",
     **{a: "williamsburg" for a in _WILLIAMSBURG_AREAS},
 }
