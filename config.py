@@ -50,7 +50,8 @@ LATEST_MOVE_IN   = None          # flag listings starting after this
 # / fidi), Brooklyn re-cut, Bushwick and Red Hook dropped, ~36 areas added.
 # Sunset Park removed 2026-08-26. Ditmas Park, Prospect Park South and Windsor
 # Terrace removed 2026-09-25. Bed-Stuy removed 2026-10-07. Little Haiti and East
-# Flatbush blocked by name 2026-10-13 (see EXCLUDED_AREAS below).
+# Flatbush blocked by name 2026-10-13, Crown Heights 2026-10-22 (see
+# EXCLUDED_AREAS below).
 
 REGIONS = {
     # ── Manhattan: ~34th to 59th ──
@@ -125,8 +126,8 @@ REGIONS = {
             "park slope", "south slope", "prospect heights",
             # Bed-Stuy (all five spellings) dropped 2026-10-07 (user request).
             # KNOWN LEAK: a listing that also names a neighbor still in scope —
-            # "Bed-Stuy/Clinton Hill border", "Crown Heights near Bed-Stuy" —
-            # still clears the area filter, labelled with that neighbor.
+            # "Bed-Stuy/Clinton Hill border" — still clears the area filter,
+            # labelled with that neighbor.
         ],
     },
     "south_brooklyn": {
@@ -135,7 +136,7 @@ REGIONS = {
         "neighborhoods": [
             "greenwood heights",
             "prospect lefferts gardens", "prospect-lefferts gardens",
-            "crown heights",
+            # Crown Heights dropped 2026-10-22 and blocked by name (EXCLUDED_AREAS).
             # Kept from the 2026-07-14 addition: a $1,750 rent-stabilized
             # Flatbush studio was missed as out-of-scope. Also matches
             # "Flatbush Ave" — see the ordering note at the top of this block.
@@ -161,8 +162,9 @@ NEIGHBORHOOD_KEYWORDS = [
 CHEAPER_AREAS = [
     # (Bed-Stuy, the only Central Brooklyn entry, dropped 2026-10-07)
     # South Brooklyn (currently the whole region)
+    # (Crown Heights dropped 2026-10-22)
     "greenwood heights", "prospect lefferts gardens", "prospect-lefferts gardens",
-    "crown heights", "flatbush",
+    "flatbush",
 ]
 
 # Areas blocked BY NAME. A listing that mentions any of these is rejected as
@@ -182,6 +184,14 @@ EXCLUDED_AREAS = [
     # because "flatbush" matches inside it. "East Flatbush" and "E Flatbush" are
     # the spellings seen live; "E. Flatbush" is the dotted form.
     "east flatbush", "e flatbush", "e. flatbush",
+    # Crown Heights (2026-10-22, user request: doesn't want to live there).
+    # Blocked by name rather than only dropped from REGIONS: in the CL cache,
+    # 3 of 42 Crown Heights posts also named Williamsburg or Downtown Brooklyn
+    # as a commute, which would have let them through. The cost, accepted by the
+    # user: "Prospect Heights / Crown Heights border" rooms are dropped too.
+    # "Crown Heights" is the only spelling seen live; "crown hts" is the usual
+    # abbreviation.
+    "crown heights", "crown hts",
 ]
 
 
@@ -205,8 +215,8 @@ CL_SEARCH_GROUPS = {
         '"downtown brooklyn"|"carroll gardens"',
         '"park slope"|"cobble hill"',
         '"brooklyn heights"|"fort greene"|"clinton hill"',
-        # "bed stuy" dropped 2026-10-07 (user request)
-        '"prospect heights"|"crown heights"',
+        # "bed stuy" dropped 2026-10-07, "crown heights" 2026-10-22 (user requests)
+        '"prospect heights"',
         # South Brooklyn ("ditmas park", "windsor terrace" dropped 2026-09-25)
         'flatbush|"prospect lefferts gardens"',
         # "sunset park" dropped 2026-08-26 (user request)
@@ -260,7 +270,8 @@ SPAREROOM_AREAS = [
     # South Brooklyn
     # "brooklyn/sunset_park" dropped 2026-08-26 (user request)
     # "brooklyn/windsor_terrace" dropped 2026-09-25 (user request)
-    "brooklyn/crown_heights", "brooklyn/greenwood_heights",
+    # "brooklyn/crown_heights" dropped 2026-10-22 (user request)
+    "brooklyn/greenwood_heights",
 ]
 
 
@@ -284,8 +295,7 @@ SPAREROOM_AREAS = [
 # World Trade Center, Herald Square, Peter Cooper Village, Cooperative Village.
 #
 # This search also returns some neighbors (Bushwick, Crown Heights, Ocean Hill);
-# the shared neighborhood filter sorts them out, dropping Bushwick/Ocean Hill and
-# routing Crown Heights to its own region.
+# the shared neighborhood filter drops them all.
 
 SPAREROOM_SEARCH_QUERIES = [
     # "Bedford Stuyvesant" dropped 2026-10-07 (user request) — it was the only

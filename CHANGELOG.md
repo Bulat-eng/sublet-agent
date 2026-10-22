@@ -2,6 +2,29 @@
 
 All notable changes to the sublet-agent are documented here. Versions follow [semver](https://semver.org/).
 
+## [0.11.1] — 2026-10-22
+
+### Removed
+- **Crown Heights** (user request), from every place that searched or scored it:
+  the `south_brooklyn` region, `CHEAPER_AREAS`, the Craigslist query group (now just
+  `"prospect heights"`), SpareRoom `brooklyn/crown_heights`, and the in-scope
+  `scam_data` tables (subway lines, landmark proximity). South Brooklyn is now
+  Greenwood Heights, PLG and Flatbush. 61 → 60 neighborhoods, 40 → 39 SpareRoom pages.
+
+### Changed
+- **Crown Heights is blocked by name** (`EXCLUDED_AREAS`: `crown heights`, `crown hts`),
+  like Little Haiti and East Flatbush, so a listing that mentions it is rejected even when
+  it also names an in-scope area. Dropping it from `REGIONS` alone would have leaked 3 of
+  the 42 cached Craigslist posts that mention it: real Crown Heights rooms that name
+  Williamsburg or Downtown Brooklyn as a commute.
+- Accepted cost (user decision): "Prospect Heights / Crown Heights border" rooms are
+  dropped too. 2 such posts in the ~6-week cache.
+- Its subway lines moved to `scam_data.OTHER_AREA_LINES`, next to East Flatbush.
+- `test_regions.py`: 4 blocked cases (incl. two real CL posts), 1 Prospect Heights
+  still-kept case, and the real $1,444 Empire Blvd Ohana room as a blocked rent-cap case.
+  Rent-cap cases that used Crown Heights moved to Flatbush / Greenwood Heights / PLG.
+  60/60 passing. `test_scam.py`'s South Brooklyn garage/EV case moved to Flatbush.
+
 ## [0.11.0] — 2026-10-20
 
 ### Changed
